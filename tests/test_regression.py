@@ -250,6 +250,24 @@ def test_reg_016_apps_use_standard_runtipi_categories_and_spiral_shows_in_catalo
             f"[REG-016] Regression: Category 'crypto' breaks Runtipi store listing for '{app_id}'"
         )
 
+def test_reg_017_technitium_logo_is_official_converted_jpg(apps_dir):
+    """REG-017: Technitium logo must be the official branding converted to square 1:1 JPEG,
+    preserving the official Technitium blue palette and white emblem."""
+    logo_path = apps_dir / "technitium" / "metadata" / "logo.jpg"
+    assert logo_path.exists(), "[REG-017] Regression: Missing technitium/metadata/logo.jpg"
+
+    with Image.open(logo_path) as img:
+        assert img.format == "JPEG", f"[REG-017] Regression: Logo must be JPEG, got {img.format}"
+        w, h = img.size
+        assert w == h and w >= 512, f"[REG-017] Regression: Logo must be at least 512x512 square, got {w}x{h}"
+
+        # Sample corner and center pixels to verify official Technitium palette
+        corner_r, corner_g, corner_b = img.getpixel((10, 10))
+        assert 80 <= corner_r <= 125, f"[REG-017] Unexpected corner Red value: {corner_r}"
+        assert 130 <= corner_g <= 175, f"[REG-017] Unexpected corner Green value: {corner_g}"
+        assert 230 <= corner_b <= 255, f"[REG-017] Unexpected corner Blue value: {corner_b}"
+
+
 
 
 

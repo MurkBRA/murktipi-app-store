@@ -1,7 +1,7 @@
 # MurkTipi App Store 🏪
 
 [![CI & Anti-Regression Tests](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml/badge.svg)](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-30%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
+[![Tests Passing](https://img.shields.io/badge/tests-31%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
 [![Runtipi Schema](https://img.shields.io/badge/runtipi%20schema-v2-blue.svg)](https://runtipi.io)
 
 Repositório customizado de aplicativos (App Store de Usuário) para o **[Runtipi](https://runtipi.io)**, mantido por **[@murkbra](https://github.com/murkbra)**.
@@ -73,7 +73,7 @@ Este repositório possui uma suíte rigorosa de testes automatizados e uma polí
 - `tests/test_compose_validation.py`: Valida a sintaxe YAML do `docker-compose.yml`, o padrão Runtipi v2 (`x-runtipi.schema_version: 2`), serviço principal (`is_main: true`) e mapeamento correto de todas as variáveis de ambiente.
 - `tests/test_spiral_pool.py`: Testes específicos da Spiral Pool (modos single/multi, flags de moedas, dependência saudável do Postgres, portas Stratum).
 - `tests/test_technitium.py`: Testes específicos do Technitium (validação das 3 variáveis essenciais, portas DNS UDP/TCP 53, console 5380 e formato `logo.jpg`).
-- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-016`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
+- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-017`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
 - `.github/workflows/ci.yml`: Automação contínua no GitHub Actions disparada a cada push e pull request.
 
 ---

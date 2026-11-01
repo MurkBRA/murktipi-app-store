@@ -53,3 +53,4 @@ def test_technitium_logo_is_jpg(apps_dir):
         assert img.format == "JPEG"
         w, h = img.size
         assert w == h
+        assert w >= 512
