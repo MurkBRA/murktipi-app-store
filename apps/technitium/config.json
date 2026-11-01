@@ -1,0 +1,453 @@
+{
+  "$schema": "https://raw.githubusercontent.com/runtipi/runtipi-docs/main/src/content/docs/reference/app-config.schema.json",
+  "id": "technitium",
+  "name": "Technitium DNS Server",
+  "port": 5380,
+  "available": true,
+  "categories": ["network", "security", "utilities"],
+  "description": "Technitium DNS Server is an authoritative and recursive DNS server for privacy, security, local network domain resolution, DNS-over-TLS/HTTPS/QUIC, and network-wide ad blocking.",
+  "short_desc": "Authoritative & recursive DNS server with ad blocking and DoH/DoT/DoQ support",
+  "author": "Technitium Software",
+  "tipi_version": 1,
+  "version": "13.2.1",
+  "source": "https://github.com/TechnitiumSoftware/DnsServer",
+  "website": "https://technitium.com/dns/",
+  "exposable": true,
+  "dynamic_config": true,
+  "form_fields": [
+    {
+      "type": "text",
+      "label": "DNS Server Domain Name (FQDN)",
+      "hint": "The primary fully qualified domain name used by this DNS Server to identify itself.",
+      "env_variable": "DNS_SERVER_DOMAIN",
+      "default": "dns-server",
+      "required": true
+    },
+    {
+      "type": "password",
+      "label": "Admin Web Console Password",
+      "hint": "The DNS web console admin user password (read on first startup).",
+      "env_variable": "DNS_SERVER_ADMIN_PASSWORD",
+      "default": "admin",
+      "required": true
+    },
+    {
+      "type": "text",
+      "label": "Admin Password File Path",
+      "hint": "Path to a file containing the plain text admin password.",
+      "env_variable": "DNS_SERVER_ADMIN_PASSWORD_FILE",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "boolean",
+      "label": "Prefer IPv6 for Upstream Queries",
+      "hint": "DNS Server will use IPv6 for querying whenever possible.",
+      "env_variable": "DNS_SERVER_PREFER_IPV6",
+      "default": false,
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "Web Console Local IP Addresses",
+      "hint": "Comma-separated list of IP addresses for web console to listen on (only with host mode).",
+      "env_variable": "DNS_SERVER_WEB_SERVICE_LOCAL_ADDRESSES",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "number",
+      "label": "Web Console HTTP Port",
+      "hint": "Internal TCP port number for the DNS web console over HTTP.",
+      "env_variable": "DNS_SERVER_WEB_SERVICE_HTTP_PORT",
+      "default": 5380,
+      "required": false
+    },
+    {
+      "type": "number",
+      "label": "Web Console HTTPS Port",
+      "hint": "Internal TCP port number for the DNS web console over HTTPS.",
+      "env_variable": "DNS_SERVER_WEB_SERVICE_HTTPS_PORT",
+      "default": 53443,
+      "required": false
+    },
+    {
+      "type": "boolean",
+      "label": "Enable HTTPS for Web Console",
+      "hint": "Enables HTTPS for the DNS web console.",
+      "env_variable": "DNS_SERVER_WEB_SERVICE_ENABLE_HTTPS",
+      "default": false,
+      "required": false
+    },
+    {
+      "type": "boolean",
+      "label": "Use Self-Signed Certificate for HTTPS",
+      "hint": "Enables self-signed TLS certificate for the web console.",
+      "env_variable": "DNS_SERVER_WEB_SERVICE_USE_SELF_SIGNED_CERT",
+      "default": false,
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "TLS Certificate File Path (.pfx)",
+      "hint": "Path to custom TLS certificate for the web console (e.g. /etc/dns/tls/cert.pfx).",
+      "env_variable": "DNS_SERVER_WEB_SERVICE_TLS_CERTIFICATE_PATH",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "password",
+      "label": "TLS Certificate Password",
+      "hint": "Password for the custom TLS certificate.",
+      "env_variable": "DNS_SERVER_WEB_SERVICE_TLS_CERTIFICATE_PASSWORD",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "boolean",
+      "label": "Redirect HTTP to HTTPS",
+      "hint": "Enables HTTP to HTTPS redirection for the DNS web console.",
+      "env_variable": "DNS_SERVER_WEB_SERVICE_HTTP_TO_TLS_REDIRECT",
+      "default": false,
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "Allowed Reverse Proxy IP Addresses",
+      "hint": "Comma-separated list of IP addresses or network CIDRs allowed to act as reverse proxy. Prefix with ! to deny.",
+      "env_variable": "DNS_SERVER_WEB_SERVICE_REVERSE_PROXY_ADDRESSES",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "boolean",
+      "label": "Enable DNS-over-HTTP (Port 80/8053)",
+      "hint": "Enables DNS-over-HTTP protocol for use behind TLS terminating reverse proxy.",
+      "env_variable": "DNS_SERVER_OPTIONAL_PROTOCOL_DNS_OVER_HTTP",
+      "default": false,
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "DNS Recursion Policy",
+      "hint": "Control which clients can use recursive queries.",
+      "env_variable": "DNS_SERVER_RECURSION",
+      "default": "AllowOnlyForPrivateNetworks",
+      "required": false,
+      "options": [
+        { "label": "Allow Only For Private Networks", "value": "AllowOnlyForPrivateNetworks" },
+        { "label": "Allow (All Networks)", "value": "Allow" },
+        { "label": "Deny", "value": "Deny" },
+        { "label": "Use Specified Network ACL", "value": "UseSpecifiedNetworkACL" }
+      ]
+    },
+    {
+      "type": "text",
+      "label": "Recursion Network ACL",
+      "hint": "Comma-separated list of IP/CIDR addresses (e.g. 192.168.1.0/24, !192.168.1.10). Valid when recursion is UseSpecifiedNetworkACL.",
+      "env_variable": "DNS_SERVER_RECURSION_NETWORK_ACL",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "Recursion Denied Networks (Legacy)",
+      "hint": "Comma-separated list of networks to deny recursion.",
+      "env_variable": "DNS_SERVER_RECURSION_DENIED_NETWORKS",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "Recursion Allowed Networks (Legacy)",
+      "hint": "Comma-separated list of networks to allow recursion.",
+      "env_variable": "DNS_SERVER_RECURSION_ALLOWED_NETWORKS",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "boolean",
+      "label": "Enable Ad & Domain Blocking",
+      "hint": "Sets the DNS server to block domain names using Blocked Zone and Block List Zone.",
+      "env_variable": "DNS_SERVER_ENABLE_BLOCKING",
+      "default": true,
+      "required": false
+    },
+    {
+      "type": "boolean",
+      "label": "Allow TXT Blocking Report",
+      "hint": "Respond with TXT records containing a blocked domain report for TXT type queries.",
+      "env_variable": "DNS_SERVER_ALLOW_TXT_BLOCKING_REPORT",
+      "default": false,
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "Block List URLs",
+      "hint": "Comma-separated list of block list URLs to automatically download and update.",
+      "env_variable": "DNS_SERVER_BLOCK_LIST_URLS",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "Upstream DNS Forwarders",
+      "hint": "Comma-separated list of forwarder IP addresses (e.g. 1.1.1.1, 8.8.8.8, 9.9.9.9).",
+      "env_variable": "DNS_SERVER_FORWARDERS",
+      "default": "1.1.1.1, 8.8.8.8",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "Upstream Forwarder Protocol",
+      "hint": "Protocol used to query upstream forwarders.",
+      "env_variable": "DNS_SERVER_FORWARDER_PROTOCOL",
+      "default": "Tcp",
+      "required": false,
+      "options": [
+        { "label": "TCP", "value": "Tcp" },
+        { "label": "UDP", "value": "Udp" },
+        { "label": "TLS (DNS-over-TLS)", "value": "Tls" },
+        { "label": "HTTPS (DNS-over-HTTPS)", "value": "Https" },
+        { "label": "QUIC (DNS-over-QUIC)", "value": "Quic" }
+      ]
+    },
+    {
+      "type": "boolean",
+      "label": "Log Using Local Time",
+      "hint": "Use local timezone for logging instead of UTC.",
+      "env_variable": "DNS_SERVER_LOG_USING_LOCAL_TIME",
+      "default": true,
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "Log Folder Path",
+      "hint": "Folder path on server where logs are saved.",
+      "env_variable": "DNS_SERVER_LOG_FOLDER_PATH",
+      "default": "/var/log/technitium/dns",
+      "required": false
+    },
+    {
+      "type": "number",
+      "label": "Max Log Retention (Days)",
+      "hint": "Max days to retain log files (0 disables automatic deletion).",
+      "env_variable": "DNS_SERVER_LOG_MAX_LOG_FILE_DAYS",
+      "default": 30,
+      "required": false
+    },
+    {
+      "type": "boolean",
+      "label": "Enable In-Memory Stats Only",
+      "hint": "Enables in-memory statistics only; Last Hour stats displayed on dashboard and none written to disk.",
+      "env_variable": "DNS_SERVER_STATS_ENABLE_IN_MEMORY_STATS",
+      "default": false,
+      "required": false
+    },
+    {
+      "type": "number",
+      "label": "Max Stats Retention (Days)",
+      "hint": "Max days to retain dashboard stats files (0 disables automatic deletion).",
+      "env_variable": "DNS_SERVER_STATS_MAX_STAT_FILE_DAYS",
+      "default": 30,
+      "required": false
+    },
+    {
+      "type": "boolean",
+      "label": "Enable SSO (OpenID Connect)",
+      "hint": "Enable Single Sign-On with OpenID Connect (OIDC).",
+      "env_variable": "DNS_SERVER_SSO_ENABLED",
+      "default": false,
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "SSO OIDC Authority URL",
+      "hint": "The OpenID Connect Authority (Issuer) URL.",
+      "env_variable": "DNS_SERVER_SSO_AUTHORITY",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "SSO Client ID",
+      "hint": "The OpenID Connect Client ID.",
+      "env_variable": "DNS_SERVER_SSO_CLIENT_ID",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "password",
+      "label": "SSO Client Secret",
+      "hint": "The OpenID Connect Client Secret.",
+      "env_variable": "DNS_SERVER_SSO_CLIENT_SECRET",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "SSO Client Secret File Path",
+      "hint": "Path to a file containing plain text OIDC Client Secret.",
+      "env_variable": "DNS_SERVER_SSO_CLIENT_SECRET_FILE",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "SSO Metadata Discovery Address",
+      "hint": "Custom OIDC metadata discovery endpoint URL (if different from authority default).",
+      "env_variable": "DNS_SERVER_SSO_METADATA_ADDRESS",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "SSO Scopes",
+      "hint": "Comma-separated list of OIDC Scopes (e.g. openid,profile,email).",
+      "env_variable": "DNS_SERVER_SSO_SCOPES",
+      "default": "openid,profile,email",
+      "required": false
+    },
+    {
+      "type": "boolean",
+      "label": "SSO Allow User Sign Up",
+      "hint": "Automatically provision user accounts for new users signing in via SSO.",
+      "env_variable": "DNS_SERVER_SSO_ALLOW_SIGNUP",
+      "default": false,
+      "required": false
+    },
+    {
+      "type": "boolean",
+      "label": "SSO Allow Sign Up Only For Mapped Users",
+      "hint": "Allow new SSO users to register only if they belong to a mapped group.",
+      "env_variable": "DNS_SERVER_SSO_ALLOW_SIGNUP_ONLY_FOR_MAPPED_USERS",
+      "default": false,
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "SSO Group Mapping",
+      "hint": "Comma-separated key:value pairs (e.g. Admins:Administrators,DNS Admins:DNS Administrators).",
+      "env_variable": "DNS_SERVER_SSO_GROUP_MAP",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "boolean",
+      "label": "Enable LDAP Authentication",
+      "hint": "Allow users from LDAP or Active Directory to log in.",
+      "env_variable": "DNS_SERVER_LDAP_ENABLED",
+      "default": false,
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "LDAP Server Hostname / IP",
+      "hint": "Domain name or IP address of the LDAP directory server.",
+      "env_variable": "DNS_SERVER_LDAP_SERVER",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "number",
+      "label": "LDAP Server Port",
+      "hint": "Port number for LDAP (default 389 for plain/StartTLS, 636 for LDAPS).",
+      "env_variable": "DNS_SERVER_LDAP_PORT",
+      "default": 389,
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "LDAP SSL Option",
+      "hint": "Encryption option for LDAP connection.",
+      "env_variable": "DNS_SERVER_LDAP_SSL_OPTION",
+      "default": "None",
+      "required": false,
+      "options": [
+        { "label": "None", "value": "None" },
+        { "label": "StartTLS", "value": "StartTLS" },
+        { "label": "LDAPS", "value": "LDAPS" }
+      ]
+    },
+    {
+      "type": "boolean",
+      "label": "LDAP Ignore SSL Certificate Errors",
+      "hint": "Ignore invalid or self-signed certificates on LDAP server (use for testing only).",
+      "env_variable": "DNS_SERVER_LDAP_IGNORE_SSL_ERRORS",
+      "default": false,
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "LDAP Bind Username (DN/UPN)",
+      "hint": "Distinguished Name or UPN of service account to search directory (leave empty for anonymous).",
+      "env_variable": "DNS_SERVER_LDAP_BIND_USERNAME",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "password",
+      "label": "LDAP Bind Password",
+      "hint": "Password for the LDAP bind service account.",
+      "env_variable": "DNS_SERVER_LDAP_BIND_PASSWORD",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "LDAP Bind Password File Path",
+      "hint": "Path to file containing the bind password.",
+      "env_variable": "DNS_SERVER_LDAP_BIND_PASSWORD_FILE",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "LDAP Search Base (DN)",
+      "hint": "Base Distinguished Name used to search for user entries (e.g. dc=example,dc=com).",
+      "env_variable": "DNS_SERVER_LDAP_SEARCH_BASE",
+      "default": "",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "LDAP User Search Filter",
+      "hint": "Filter to find user. Default (sAMAccountName={0}) for Active Directory, (uid={0}) for OpenLDAP.",
+      "env_variable": "DNS_SERVER_LDAP_USER_SEARCH_FILTER",
+      "default": "(sAMAccountName={0})",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "LDAP Group Attribute",
+      "hint": "Attribute listing group memberships. Default memberOf for Active Directory.",
+      "env_variable": "DNS_SERVER_LDAP_GROUP_ATTRIBUTE",
+      "default": "memberOf",
+      "required": false
+    },
+    {
+      "type": "boolean",
+      "label": "LDAP Allow User Sign Up",
+      "hint": "Automatically provision user accounts for new users signing in via LDAP.",
+      "env_variable": "DNS_SERVER_LDAP_ALLOW_SIGNUP",
+      "default": false,
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "LDAP Allow Sign Up Only For Mapped Users",
+      "hint": "Set to true to restrict new LDAP user registrations to mapped groups only.",
+      "env_variable": "DNS_SERVER_LDAP_ALLOW_SIGNUP_ONLY_FOR_MAPPED_USERS",
+      "default": "false",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "LDAP Group Mapping",
+      "hint": "Comma-separated key:value pairs (e.g. Administrators:Administrators,DNS Admins:DNS Administrators).",
+      "env_variable": "DNS_SERVER_LDAP_GROUP_MAP",
+      "default": "",
+      "required": false
+    }
+  ]
+}

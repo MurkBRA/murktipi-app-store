@@ -1,0 +1,119 @@
+x-runtipi:
+  schema_version: 2
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: spiralstratum
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-spiraldbpassword1234}
+      POSTGRES_DB: spiralstratum
+    volumes:
+      - ${APP_DATA_DIR}/data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U spiralstratum -d spiralstratum
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - tipi_main_network
+
+  stratum:
+    user: 0:0
+    image: spiralpool/stratum:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      # Stratum port primária configurada dinamicamente
+      - "${STRATUM_PORT:-4333}:${STRATUM_PORT:-4333}/tcp"
+      # Portas SHA-256d dedicadas para multi-coin
+      - "4334:4334/tcp"     # BTC Stratum V2 Noise
+      - "3333:3333/tcp"     # DGB Stratum V1
+      - "5333:5333/tcp"     # BCH Stratum V1
+      - "16180:16180/tcp"   # Smart Multi Stratum V1
+      # Portas Scrypt dedicadas para multi-coin
+      - "7333:7333/tcp"     # LTC Stratum V1
+      - "8335:8335/tcp"     # DOGE Stratum V1
+      # API interna do pool / Prometheus exporter
+      - "4000:4000/tcp"
+    environment:
+      POOL_MODE: ${POOL_MODE:-single}
+      POOL_COIN: ${POOL_COIN:-bitcoin}
+      POOL_ID: ${POOL_ID:-btc_sha256_1}
+      POOL_ADDRESS: ${POOL_ADDRESS}
+      COINBASE_TEXT: ${COINBASE_TEXT:-Mined by Spiral Pool}
+      STRATUM_PORT: ${STRATUM_PORT:-4333}
+      STRATUM_V2_ENABLED: ${STRATUM_V2_ENABLED:-false}
+
+      # Daemon node configuration
+      DAEMON_HOST: ${DAEMON_HOST:-bitcoind}
+      DAEMON_RPC_PORT: ${DAEMON_RPC_PORT:-8332}
+      DAEMON_ZMQ_PORT: ${DAEMON_ZMQ_PORT:-28332}
+      DAEMON_RPC_USER: ${DAEMON_RPC_USER:-}
+      DAEMON_RPC_PASSWORD: ${DAEMON_RPC_PASSWORD:-}
+
+      # Multi-coin flags
+      ENABLE_BTC: ${ENABLE_BTC:-false}
+      BTC_POOL_ADDRESS: ${BTC_POOL_ADDRESS:-}
+      ENABLE_DGB: ${ENABLE_DGB:-false}
+      DGB_POOL_ADDRESS: ${DGB_POOL_ADDRESS:-}
+      ENABLE_LTC: ${ENABLE_LTC:-false}
+      LTC_POOL_ADDRESS: ${LTC_POOL_ADDRESS:-}
+      ENABLE_DOGE: ${ENABLE_DOGE:-false}
+      DOGE_POOL_ADDRESS: ${DOGE_POOL_ADDRESS:-}
+      MERGE_MINING_ENABLED: ${MERGE_MINING_ENABLED:-false}
+
+      # Database
+      DB_USER: spiralstratum
+      DB_PASSWORD: ${DB_PASSWORD:-spiraldbpassword1234}
+      DB_NAME: spiralstratum
+      DB_HOST: postgres
+      DB_PORT: 5432
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ${APP_DATA_DIR}/data/logs:/spiralpool/logs
+      - ${APP_DATA_DIR}/data/shared:/spiralpool/data
+      - ${APP_DATA_DIR}/data/config:/spiralpool/config
+      - ${RUNTIPI_APP_DATA_PATH}/app-data/migrated/bitcoind/data:/bitcoin:ro
+    networks:
+      - tipi_main_network
+
+  dashboard:
+    user: 0:0
+    image: spiralpool/dashboard:latest
+    restart: unless-stopped
+    depends_on:
+      - stratum
+    environment:
+      POOL_API_URL: http://stratum:4000
+      PROMETHEUS_URL: http://stratum:9100
+      POOL_ID: ${POOL_ID:-btc_sha256_1}
+      DASHBOARD_AUTH_ENABLED: "true"
+      DASHBOARD_ADMIN_PASSWORD: ${DASHBOARD_ADMIN_PASSWORD:-spiraladmin}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: spiralstratum
+      POSTGRES_USER: spiralstratum
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-spiraldbpassword1234}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ${APP_DATA_DIR}/data/dashboard:/spiralpool/dashboard/data
+      - ${APP_DATA_DIR}/data/shared:/spiralpool/data
+      - ${APP_DATA_DIR}/data/config:/spiralpool/config
+    networks:
+      - tipi_main_network
+    ports:
+      - "${APP_PORT}:1618"
+    x-runtipi:
+      is_main: true
+      internal_port: 1618
+
+networks:
+  tipi_main_network:
+    external: true
