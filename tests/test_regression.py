@@ -19,6 +19,7 @@ Tracker:
 - REG-012: Database services must provide healthcheck to prevent startup races
 - REG-013: No personal identifiable information, real personal wallets or personal passwords exposed
 - REG-014: Technitium must have entrypoint filter to unset blank/empty environment variables
+- REG-015: Technitium defaults (domain=technitium-dns, recursion=Allow, admin password) and optional vars have no defaults
 """
 
 import re
@@ -60,7 +61,7 @@ def test_reg_003_form_fields_must_use_env_variable_property(app_ids, get_app_con
 def test_reg_004_technitium_must_support_both_tcp_and_udp_dns(get_app_compose):
     """REG-004: DNS queries fail if UDP is missing; DNSSEC & zone transfers fail if TCP is missing."""
     compose = get_app_compose("technitium")
-    ports = [str(p) for p in compose["services"]["dns-server"]["ports"]]
+    ports = [str(p) for p in compose["services"]["technitium-dns"]["ports"]]
     has_udp = any("53:53/udp" in p for p in ports)
     has_tcp = any("53:53/tcp" in p for p in ports)
     assert has_udp, "[REG-004] Regression: Technitium is missing 53:53/udp"
@@ -169,10 +170,10 @@ def test_reg_013_no_personal_identifiable_data_or_real_wallet_addresses(apps_dir
 def test_reg_014_technitium_has_empty_var_pruning_entrypoint(get_app_compose):
     """REG-014: Technitium must prune empty variables on container startup so unconfigured fields do not exist."""
     compose = get_app_compose("technitium")
-    dns_service = compose["services"]["dns-server"]
+    service = compose["services"]["technitium-dns"]
 
-    assert "entrypoint" in dns_service, "[REG-014] Regression: Technitium dns-server service missing entrypoint"
-    entrypoint = dns_service["entrypoint"]
+    assert "entrypoint" in service, "[REG-014] Regression: Technitium service missing entrypoint"
+    entrypoint = service["entrypoint"]
     assert isinstance(entrypoint, list) and len(entrypoint) >= 3
 
     # The shell script block should be in the entrypoint
@@ -180,5 +181,39 @@ def test_reg_014_technitium_has_empty_var_pruning_entrypoint(get_app_compose):
     assert "unset" in entrypoint_script, "[REG-014] Regression: Entrypoint script does not unset empty variables"
     assert "DNS_SERVER_" in entrypoint_script, "[REG-014] Regression: Entrypoint script does not filter DNS_SERVER_ variables"
     assert "DnsServerApp.dll" in entrypoint_script, "[REG-014] Regression: Entrypoint does not exec DnsServerApp.dll"
+
+def test_reg_015_technitium_defaults_match_user_spec_and_optional_vars_have_no_defaults(get_app_config, get_app_compose):
+    """REG-015: Ensure Technitium matches user compose spec with 3 defaults and no defaults for extra vars."""
+    config = get_app_config("technitium")
+    form_fields = {f["env_variable"]: f for f in config.get("form_fields", [])}
+
+    assert form_fields["DNS_SERVER_DOMAIN"]["default"] == "technitium-dns", (
+        "[REG-015] Regression: DNS_SERVER_DOMAIN default must be 'technitium-dns'"
+    )
+    assert form_fields["DNS_SERVER_RECURSION"]["default"] == "Allow", (
+        "[REG-015] Regression: DNS_SERVER_RECURSION default must be 'Allow'"
+    )
+    assert "DNS_SERVER_ADMIN_PASSWORD" in form_fields
+
+    # Optional variables must have NO default value
+    for i in range(1, 6):
+        assert form_fields[f"EXTRA_VAR_{i}_NAME"]["default"] == "", (
+            f"[REG-015] Regression: EXTRA_VAR_{i}_NAME must not have a default value"
+        )
+        assert form_fields[f"EXTRA_VAR_{i}_VALUE"]["default"] == "", (
+            f"[REG-015] Regression: EXTRA_VAR_{i}_VALUE must not have a default value"
+        )
+
+    # Compose spec check
+    compose = get_app_compose("technitium")
+    assert "technitium-dns" in compose["services"]
+    svc = compose["services"]["technitium-dns"]
+    assert svc.get("container_name") == "technitium-dns"
+    assert svc.get("image") == "technitium/dns-server:latest"
+    assert svc.get("restart") == "unless-stopped"
+    ports = [str(p) for p in svc.get("ports", [])]
+    assert any("53:53/tcp" in p for p in ports)
+    assert any("53:53/udp" in p for p in ports)
+
 
 

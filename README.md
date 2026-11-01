@@ -1,7 +1,7 @@
 # MurkTipi App Store 🏪
 
 [![CI & Anti-Regression Tests](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml/badge.svg)](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-27%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
+[![Tests Passing](https://img.shields.io/badge/tests-29%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
 [![Runtipi Schema](https://img.shields.io/badge/runtipi%20schema-v2-blue.svg)](https://runtipi.io)
 
 Repositório customizado de aplicativos (App Store de Usuário) para o **[Runtipi](https://runtipi.io)**, mantido por **[@murkbra](https://github.com/murkbra)**.
