@@ -43,10 +43,9 @@ def test_all_apps_have_required_structure(apps_dir, app_ids):
         assert desc_path.exists(), f"App '{app_id}' is missing metadata/description.md"
         assert desc_path.stat().st_size > 50, f"App '{app_id}' description.md is too short or empty"
 
-        # Check logo
-        logo_png = metadata_path / "logo.png"
+        # Check logo in .jpg format
         logo_jpg = metadata_path / "logo.jpg"
-        assert logo_png.exists() or logo_jpg.exists(), f"App '{app_id}' is missing logo (logo.png or logo.jpg)"
+        assert logo_jpg.exists(), f"App '{app_id}' must have metadata/logo.jpg in JPG format"
 
 def test_config_json_fields_and_types(app_ids, get_app_config):
     for app_id in app_ids:
@@ -101,11 +100,11 @@ def test_form_fields_structure(app_ids, get_app_config):
 def test_logo_validity_and_aspect_ratio(apps_dir, app_ids):
     for app_id in app_ids:
         metadata_path = apps_dir / app_id / "metadata"
-        logo_path = metadata_path / "logo.png"
-        if not logo_path.exists():
-            logo_path = metadata_path / "logo.jpg"
+        logo_path = metadata_path / "logo.jpg"
+        assert logo_path.exists(), f"App '{app_id}' must have logo.jpg"
 
         with Image.open(logo_path) as img:
+            assert img.format == "JPEG", f"App '{app_id}' logo must be JPEG format, got {img.format}"
             w, h = img.size
             assert w == h, f"App '{app_id}' logo must be square (1:1 aspect ratio), but got {w}x{h}"
             assert w >= 128, f"App '{app_id}' logo resolution too small ({w}x{h}), expected >= 128x128"

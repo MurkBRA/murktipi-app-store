@@ -1,7 +1,7 @@
 # MurkTipi App Store 🏪
 
 [![CI & Anti-Regression Tests](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml/badge.svg)](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-29%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
+[![Tests Passing](https://img.shields.io/badge/tests-30%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
 [![Runtipi Schema](https://img.shields.io/badge/runtipi%20schema-v2-blue.svg)](https://runtipi.io)
 
 Repositório customizado de aplicativos (App Store de Usuário) para o **[Runtipi](https://runtipi.io)**, mantido por **[@murkbra](https://github.com/murkbra)**.
@@ -37,15 +37,12 @@ Servidor de pool de mineração solo e multi-moedas com Stratum V1/V2, dashboard
 ### 2. 🛡️ [Technitium DNS Server](apps/technitium)
 Servidor DNS autoritativo e recursivo de nível corporativo com bloqueio de anúncios e rastreadores em toda a rede (estilo Pi-hole / AdGuard Home) e suporte a protocolos modernos.
 
-- **100% Configurável:** Contém **todas as variáveis de ambiente da documentação oficial do Docker** (`technitium/dns-server`), incluindo:
-  - FQDN e credenciais de administrador.
-  - Portas HTTP / HTTPS e certificados TLS (inclusive self-signed).
-  - Políticas de recursão e listas de controle de acesso (ACL).
-  - Listas de bloqueio de anúncios (Block List Zone) automáticas.
-  - Encaminhadores upstream (Forwarders) com protocolos UDP, TCP, DoT, DoH e DoQ.
-  - Single Sign-On (SSO) com OpenID Connect (OIDC).
-  - Integração corporativa com Active Directory / OpenLDAP.
-- **Resolução & Criptografia:** Suporte a DoH (DNS-over-HTTPS), DoT (DNS-over-TLS) e DoQ (DNS-over-QUIC).
+- **Configuração Clara & Direta:**
+  - `DNS_SERVER_DOMAIN`: Nome de domínio padrão (FQDN) do servidor.
+  - `DNS_SERVER_RECURSION`: Política de recursão DNS (Allow, AllowOnlyForPrivateNetworks, Deny, etc.).
+  - `DNS_SERVER_ADMIN_PASSWORD`: Senha do painel web administrativo.
+- **Portas Suportadas:** Porta 53 (TCP e UDP) para consultas DNS de alto desempenho e porta 5380 para interface gráfica.
+- **Resolução & Criptografia:** Suporte a DoH (DNS-over-HTTPS), DoT (DNS-over-TLS) e DoQ (DNS-over-QUIC) configuráveis pela interface.
 
 ---
 
@@ -75,8 +72,8 @@ Este repositório possui uma suíte rigorosa de testes automatizados e uma polí
 - `tests/test_schema_validation.py`: Valida o formato dos arquivos `config.json`, tipos de campos, obrigatoriedade de campos, logo 1:1 e descrições.
 - `tests/test_compose_validation.py`: Valida a sintaxe YAML do `docker-compose.yml`, o padrão Runtipi v2 (`x-runtipi.schema_version: 2`), serviço principal (`is_main: true`) e mapeamento correto de todas as variáveis de ambiente.
 - `tests/test_spiral_pool.py`: Testes específicos da Spiral Pool (modos single/multi, flags de moedas, dependência saudável do Postgres, portas Stratum).
-- `tests/test_technitium.py`: Testes específicos do Technitium (garantia de que todas as 50+ variáveis da documentação Docker estão presentes no formulário e no compose, portas DNS UDP/TCP 53, DoT/DoQ 853 e console 5380).
-- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-012+`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
+- `tests/test_technitium.py`: Testes específicos do Technitium (validação das 3 variáveis essenciais, portas DNS UDP/TCP 53, console 5380 e formato `logo.jpg`).
+- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-016`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
 - `.github/workflows/ci.yml`: Automação contínua no GitHub Actions disparada a cada push e pull request.
 
 ---

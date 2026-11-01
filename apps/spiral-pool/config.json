@@ -4,7 +4,7 @@
   "name": "Spiral Mining Pool",
   "port": 1618,
   "available": true,
-  "categories": ["utilities", "crypto"],
+  "categories": ["utilities"],
   "description": "High-performance solo and multi-coin cryptocurrency mining pool supporting Stratum V1/V2, Prometheus metrics, and web dashboard for Bitcoin, DigiByte, Litecoin, Dogecoin and more.",
   "short_desc": "Solo & multi-coin cryptocurrency mining pool",
   "author": "Spiral Pool Contributors",

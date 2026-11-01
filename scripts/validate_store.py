@@ -53,9 +53,7 @@ def validate_app(app_path: Path) -> list:
     compose_file = app_path / "docker-compose.yml"
     metadata_dir = app_path / "metadata"
     desc_file = metadata_dir / "description.md"
-    logo_file = metadata_dir / "logo.png"
-    if not logo_file.exists():
-        logo_file = metadata_dir / "logo.jpg"
+    logo_file = metadata_dir / "logo.jpg"
 
     if not config_file.exists():
         errors.append("Missing config.json")
@@ -64,7 +62,7 @@ def validate_app(app_path: Path) -> list:
     if not desc_file.exists():
         errors.append("Missing metadata/description.md")
     if not logo_file.exists():
-        errors.append("Missing metadata/logo.png (or logo.jpg)")
+        errors.append("Missing metadata/logo.jpg (required format: .jpg)")
 
     if errors:
         for err in errors:

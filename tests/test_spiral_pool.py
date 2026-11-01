@@ -1,11 +1,13 @@
 import pytest
 
+from PIL import Image
+
 def test_spiral_pool_config_structure(get_app_config):
     config = get_app_config("spiral-pool")
     assert config["name"] == "Spiral Mining Pool"
     assert config["port"] == 1618
-    assert "crypto" in config["categories"]
     assert "utilities" in config["categories"]
+    assert "crypto" not in config["categories"], "Unrecognized category 'crypto' breaks Runtipi catalog listing"
 
     fields_by_var = {f["env_variable"]: f for f in config["form_fields"]}
 
@@ -61,3 +63,12 @@ def test_spiral_pool_compose_services(get_app_compose):
     assert dash["x-runtipi"]["is_main"] is True
     assert dash["x-runtipi"]["internal_port"] == 1618
     assert any("1618" in str(p) for p in dash.get("ports", []))
+
+def test_spiral_pool_logo_is_jpg(apps_dir):
+    logo = apps_dir / "spiral-pool" / "metadata" / "logo.jpg"
+    assert logo.exists()
+    with Image.open(logo) as img:
+        assert img.format == "JPEG"
+        w, h = img.size
+        assert w == h
+

@@ -18,8 +18,9 @@ Tracker:
 - REG-011: description.md must have comprehensive non-placeholder text
 - REG-012: Database services must provide healthcheck to prevent startup races
 - REG-013: No personal identifiable information, real personal wallets or personal passwords exposed
-- REG-014: Technitium must have entrypoint filter to unset blank/empty environment variables
-- REG-015: Technitium defaults (domain=technitium-dns, recursion=Allow, admin password) and optional vars have no defaults
+- REG-014: All apps must have metadata/logo.jpg in JPEG format for proper Runtipi catalog display
+- REG-015: Technitium has strictly 3 variables without selection lists (domain=technitium-dns, recursion=Allow, password=senha)
+- REG-016: Spiral Pool must use standard Runtipi categories (utilities) avoiding store rejection
 """
 
 import re
@@ -74,14 +75,13 @@ def test_reg_005_spiral_pool_stratum_port_dynamic_with_fallback(apps_dir):
         "[REG-005] Regression: Stratum port is not configurable via STRATUM_PORT in spiral-pool compose"
     )
 
-def test_reg_006_logos_must_be_strictly_square(apps_dir, app_ids):
-    """REG-006: Non-square logos distort or break Runtipi card layouts."""
+def test_reg_006_logos_must_be_strictly_square_jpg(apps_dir, app_ids):
+    """REG-006: Logos must exist in metadata/logo.jpg, format JPEG, and be square 1:1."""
     for app_id in app_ids:
-        logo_path = apps_dir / app_id / "metadata" / "logo.png"
-        if not logo_path.exists():
-            logo_path = apps_dir / app_id / "metadata" / "logo.jpg"
-        assert logo_path.exists(), f"[REG-006] Regression: Missing logo for {app_id}"
+        logo_path = apps_dir / app_id / "metadata" / "logo.jpg"
+        assert logo_path.exists(), f"[REG-006] Regression: Missing metadata/logo.jpg for {app_id}"
         with Image.open(logo_path) as img:
+            assert img.format == "JPEG", f"[REG-006] Regression: Logo for '{app_id}' must be JPEG, got {img.format}"
             w, h = img.size
             assert w == h, f"[REG-006] Regression: Logo for '{app_id}' is not square ({w}x{h})"
 
@@ -167,53 +167,89 @@ def test_reg_013_no_personal_identifiable_data_or_real_wallet_addresses(apps_dir
                         f"[REG-013] Regression: Forbidden personal term or real wallet token found in {file_path.relative_to(apps_dir)}"
                     )
 
-def test_reg_014_technitium_has_empty_var_pruning_entrypoint(get_app_compose):
-    """REG-014: Technitium must prune empty variables on container startup so unconfigured fields do not exist."""
-    compose = get_app_compose("technitium")
-    service = compose["services"]["technitium-dns"]
+def test_reg_014_no_legacy_png_logos_and_jpeg_strictly_required(apps_dir, app_ids):
+    """REG-014: Runtipi catalog requires metadata/logo.jpg. No logo.png should remain and logo.jpg must exist."""
+    for app_id in app_ids:
+        metadata_dir = apps_dir / app_id / "metadata"
+        png_logo = metadata_dir / "logo.png"
+        jpg_logo = metadata_dir / "logo.jpg"
+        assert not png_logo.exists(), (
+            f"[REG-014] Regression: Deprecated 'logo.png' found in '{app_id}/metadata'. Runtipi requires 'logo.jpg'."
+        )
+        assert jpg_logo.exists(), (
+            f"[REG-014] Regression: Missing 'metadata/logo.jpg' in '{app_id}'."
+        )
+        with Image.open(jpg_logo) as img:
+            assert img.format == "JPEG", (
+                f"[REG-014] Regression: Logo in '{app_id}' must be in JPEG format, got {img.format}."
+            )
 
-    assert "entrypoint" in service, "[REG-014] Regression: Technitium service missing entrypoint"
-    entrypoint = service["entrypoint"]
-    assert isinstance(entrypoint, list) and len(entrypoint) >= 3
-
-    # The shell script block should be in the entrypoint
-    entrypoint_script = " ".join(str(item) for item in entrypoint)
-    assert "unset" in entrypoint_script, "[REG-014] Regression: Entrypoint script does not unset empty variables"
-    assert "DNS_SERVER_" in entrypoint_script, "[REG-014] Regression: Entrypoint script does not filter DNS_SERVER_ variables"
-    assert "DnsServerApp.dll" in entrypoint_script, "[REG-014] Regression: Entrypoint does not exec DnsServerApp.dll"
-
-def test_reg_015_technitium_defaults_match_user_spec_and_optional_vars_have_no_defaults(get_app_config, get_app_compose):
-    """REG-015: Ensure Technitium matches user compose spec with 3 defaults and no defaults for extra vars."""
+def test_reg_015_technitium_has_strictly_three_env_vars_and_no_selection_lists(get_app_config, get_app_compose):
+    """REG-015: Technitium must use strictly 3 environment variables with no selection list or dynamic slots."""
     config = get_app_config("technitium")
-    form_fields = {f["env_variable"]: f for f in config.get("form_fields", [])}
-
-    assert form_fields["DNS_SERVER_DOMAIN"]["default"] == "technitium-dns", (
-        "[REG-015] Regression: DNS_SERVER_DOMAIN default must be 'technitium-dns'"
+    form_fields = config.get("form_fields", [])
+    assert len(form_fields) == 3, (
+        f"[REG-015] Regression: Technitium must have strictly 3 form fields, found {len(form_fields)}"
     )
-    assert form_fields["DNS_SERVER_RECURSION"]["default"] == "Allow", (
-        "[REG-015] Regression: DNS_SERVER_RECURSION default must be 'Allow'"
-    )
-    assert "DNS_SERVER_ADMIN_PASSWORD" in form_fields
 
-    # Optional variables must have NO default value
-    for i in range(1, 6):
-        assert form_fields[f"EXTRA_VAR_{i}_NAME"]["default"] == "", (
-            f"[REG-015] Regression: EXTRA_VAR_{i}_NAME must not have a default value"
-        )
-        assert form_fields[f"EXTRA_VAR_{i}_VALUE"]["default"] == "", (
-            f"[REG-015] Regression: EXTRA_VAR_{i}_VALUE must not have a default value"
-        )
+    field_map = {f["env_variable"]: f for f in form_fields}
+    assert set(field_map.keys()) == {
+        "DNS_SERVER_DOMAIN",
+        "DNS_SERVER_RECURSION",
+        "DNS_SERVER_ADMIN_PASSWORD",
+    }, f"[REG-015] Regression: Unexpected form fields in Technitium: {list(field_map.keys())}"
 
-    # Compose spec check
+    assert field_map["DNS_SERVER_DOMAIN"]["default"] == "technitium-dns"
+    assert field_map["DNS_SERVER_RECURSION"]["default"] == "Allow"
+    assert field_map["DNS_SERVER_ADMIN_PASSWORD"]["default"] == "senha"
+
     compose = get_app_compose("technitium")
     assert "technitium-dns" in compose["services"]
     svc = compose["services"]["technitium-dns"]
     assert svc.get("container_name") == "technitium-dns"
     assert svc.get("image") == "technitium/dns-server:latest"
     assert svc.get("restart") == "unless-stopped"
+
+    # Exactly 3 environment entries
+    env_list = svc.get("environment", [])
+    assert len(env_list) == 3, f"[REG-015] Regression: Expected 3 environment entries, got {len(env_list)}"
+    env_keys = [e.split("=")[0] for e in env_list]
+    assert set(env_keys) == {
+        "DNS_SERVER_DOMAIN",
+        "DNS_SERVER_RECURSION",
+        "DNS_SERVER_ADMIN_PASSWORD",
+    }
+
     ports = [str(p) for p in svc.get("ports", [])]
     assert any("53:53/tcp" in p for p in ports)
     assert any("53:53/udp" in p for p in ports)
+    assert any("5380:5380/tcp" in p or "5380" in p for p in ports)
+
+def test_reg_016_apps_use_standard_runtipi_categories_and_spiral_shows_in_catalog(app_ids, get_app_config):
+    """REG-016: Non-standard categories (like 'crypto') prevent apps from showing in Runtipi.
+    Apps must only use recognized Runtipi categories."""
+    valid_runtipi_categories = {
+        "utilities", "network", "media", "development", "automation",
+        "social", "finance", "security", "data", "featured", "gaming",
+        "productivity", "monitoring", "smart-home", "downloaders",
+        "books", "audio", "photos"
+    }
+
+    for app_id in app_ids:
+        cfg = get_app_config(app_id)
+        cats = cfg.get("categories", [])
+        assert isinstance(cats, list) and len(cats) > 0, (
+            f"[REG-016] Regression: App '{app_id}' must have at least one category"
+        )
+        for cat in cats:
+            assert cat in valid_runtipi_categories, (
+                f"[REG-016] Regression: App '{app_id}' has unrecognized category '{cat}' which breaks store indexing. "
+                f"Allowed: {sorted(valid_runtipi_categories)}"
+            )
+        assert "crypto" not in cats, (
+            f"[REG-016] Regression: Category 'crypto' breaks Runtipi store listing for '{app_id}'"
+        )
+
 
 
 

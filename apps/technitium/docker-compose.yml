@@ -7,44 +7,6 @@ services:
     image: "technitium/dns-server:latest"
     restart: "unless-stopped"
     hostname: ${DNS_SERVER_DOMAIN:-technitium-dns}
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        # Inject chosen extra variables
-        set -- "$$EXTRA_VAR_1_NAME" "$$EXTRA_VAR_1_VALUE" "$$EXTRA_VAR_2_NAME" "$$EXTRA_VAR_2_VALUE" "$$EXTRA_VAR_3_NAME" "$$EXTRA_VAR_3_VALUE" "$$EXTRA_VAR_4_NAME" "$$EXTRA_VAR_4_VALUE" "$$EXTRA_VAR_5_NAME" "$$EXTRA_VAR_5_VALUE"
-        while [ "$$#" -ge 2 ]; do
-          name="$$1"
-          val="$$2"
-          shift 2
-          if [ -n "$$name" ] && [ -n "$$val" ]; then
-            export "$$name=$$val"
-          fi
-        done
-        unset EXTRA_VAR_1_NAME EXTRA_VAR_1_VALUE EXTRA_VAR_2_NAME EXTRA_VAR_2_VALUE EXTRA_VAR_3_NAME EXTRA_VAR_3_VALUE EXTRA_VAR_4_NAME EXTRA_VAR_4_VALUE EXTRA_VAR_5_NAME EXTRA_VAR_5_VALUE
-
-        # Inject multiline custom env vars if provided
-        if [ -n "$$EXTRA_CUSTOM_VARS" ]; then
-          OLDIFS="$$IFS"
-          IFS=';'
-          for item in $$EXTRA_CUSTOM_VARS; do
-            if [ -n "$$item" ]; then
-              export "$$item"
-            fi
-          done
-          IFS="$$OLDIFS"
-          unset EXTRA_CUSTOM_VARS
-        fi
-
-        # Prune any empty DNS_SERVER_ vars
-        for var in $$(env | grep -E '^DNS_SERVER_' | cut -d= -f1); do
-          eval "v=\$$$$var"
-          if [ -z "$$v" ]; then
-            unset "$$var"
-          fi
-        done
-
-        exec /usr/bin/dotnet /opt/technitium/dns/DnsServerApp.dll /etc/dns
     ports:
       - "${APP_PORT}:5380/tcp"
       - "53:53/tcp"
@@ -52,18 +14,7 @@ services:
     environment:
       - "DNS_SERVER_DOMAIN=${DNS_SERVER_DOMAIN:-technitium-dns}"
       - "DNS_SERVER_RECURSION=${DNS_SERVER_RECURSION:-Allow}"
-      - "DNS_SERVER_ADMIN_PASSWORD=${DNS_SERVER_ADMIN_PASSWORD:-admin}"
-      - "EXTRA_VAR_1_NAME=${EXTRA_VAR_1_NAME:-}"
-      - "EXTRA_VAR_1_VALUE=${EXTRA_VAR_1_VALUE:-}"
-      - "EXTRA_VAR_2_NAME=${EXTRA_VAR_2_NAME:-}"
-      - "EXTRA_VAR_2_VALUE=${EXTRA_VAR_2_VALUE:-}"
-      - "EXTRA_VAR_3_NAME=${EXTRA_VAR_3_NAME:-}"
-      - "EXTRA_VAR_3_VALUE=${EXTRA_VAR_3_VALUE:-}"
-      - "EXTRA_VAR_4_NAME=${EXTRA_VAR_4_NAME:-}"
-      - "EXTRA_VAR_4_VALUE=${EXTRA_VAR_4_VALUE:-}"
-      - "EXTRA_VAR_5_NAME=${EXTRA_VAR_5_NAME:-}"
-      - "EXTRA_VAR_5_VALUE=${EXTRA_VAR_5_VALUE:-}"
-      - "EXTRA_CUSTOM_VARS=${EXTRA_CUSTOM_VARS:-}"
+      - "DNS_SERVER_ADMIN_PASSWORD=${DNS_SERVER_ADMIN_PASSWORD:-senha}"
     volumes:
       - ${APP_DATA_DIR}/data/config:/etc/dns
       - ${APP_DATA_DIR}/data/logs:/var/log/technitium/dns
