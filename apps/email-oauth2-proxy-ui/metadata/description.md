@@ -1,6 +1,6 @@
 # Email OAuth2 Proxy UI
 
-Painel web leve em **Go** (imagem oficial compilada via GitHub Actions em `ghcr.io/murkbra/email-oauth2-proxy-ui:latest`, multi-arch `amd64`/`arm64`) para gerenciar uma instalação existente do **[Email OAuth2 Proxy](https://github.com/simonrob/email-oauth2-proxy)** no seu **Runtipi**.
+Painel web leve em **Go** (imagem oficial compilada via GitHub Actions em `ghcr.io/murkbra/email-oauth2-proxy-ui`, multi-arch `amd64`/`arm64`) para gerenciar uma instalação existente do **[Email OAuth2 Proxy](https://github.com/simonrob/email-oauth2-proxy)** no seu **Runtipi**.
 
 ---
 

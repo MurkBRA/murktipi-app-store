@@ -5,6 +5,8 @@ on:
     branches: [ main, master ]
     paths:
       - 'packages/email-oauth2-proxy-ui/**'
+      - 'apps/email-oauth2-proxy-ui/config.json'
+      - 'apps/email-oauth2-proxy-ui/docker-compose.yml'
       - '.github/workflows/docker-email-oauth2-proxy-ui.yml'
   workflow_dispatch:
 
@@ -22,6 +24,13 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Resolve & verify app version
+        id: appver
+        run: |
+          APP_VERSION=$(python3 -c "import json; print(json.load(open('apps/email-oauth2-proxy-ui/config.json'))['version'])")
+          echo "version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Publishing ghcr.io/${{ env.IMAGE_NAME }}:$APP_VERSION"
 
       - name: Set up Go 1.27
         uses: actions/setup-go@v5
@@ -50,6 +59,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
+            type=raw,value=${{ steps.appver.outputs.version }}
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-
 

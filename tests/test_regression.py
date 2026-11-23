@@ -30,6 +30,7 @@ Tracker:
 - REG-023: Email OAuth2 Proxy UI must cross-compile natively via $BUILDPLATFORM into FROM scratch without QEMU
 - REG-024: Email OAuth2 Proxy UI ports-modal footer must keep structured 3-column grid (.ports-actions-grid) and all action IDs
 - REG-025: Email OAuth2 Proxy UI must default to English, support browser auto-PT + sidebar selector, and keep EN/PT keys in sync
+- REG-026: Email OAuth2 Proxy UI must pin a semantic version tag matching config.json version (never :latest) with tipi_version >= 2
 """
 
 import re
@@ -352,7 +353,7 @@ def test_reg_021_email_oauth2_proxy_ui_volumes_and_ghcr_image(repo_root, get_app
     svc = compose["services"]["email-oauth2-proxy-ui"]
     volumes = [str(v) for v in svc.get("volumes", [])]
 
-    assert svc.get("image") == "ghcr.io/murkbra/email-oauth2-proxy-ui:latest"
+    assert svc.get("image", "").startswith("ghcr.io/murkbra/email-oauth2-proxy-ui:")
     assert not any("RUNTIPI_USER_CONFIG_PATH" in v for v in volumes), (
         "[REG-021] Regression: Runtipi strips RUNTIPI_USER_CONFIG_PATH from app.env; use ROOT_FOLDER_HOST instead"
     )
@@ -438,6 +439,27 @@ def test_reg_025_email_oauth2_proxy_ui_i18n_completeness(repo_root):
     used_keys = html_keys | js_keys
     missing = used_keys - en_keys
     assert not missing, f"[REG-025] Missing translation keys in translations.js: {sorted(missing)}"
+
+
+def test_reg_026_email_oauth2_proxy_ui_versioned_image_tag(repo_root, get_app_config, get_app_compose):
+    """REG-026: Pin a semantic version in config.json and docker-compose.yml (not :latest)
+    so Runtipi detects updates and pulls the exact published GHCR image tag."""
+    cfg = get_app_config("email-oauth2-proxy-ui")
+    compose = get_app_compose("email-oauth2-proxy-ui")
+    wf_text = (repo_root / ".github" / "workflows" / "docker-email-oauth2-proxy-ui.yml").read_text(encoding="utf-8")
+
+    version = str(cfg.get("version", ""))
+    assert version and version != "latest", "[REG-026] version in config.json must not be 'latest'"
+    assert re.match(r"^\d+\.\d+\.\d+$", version), f"[REG-026] Expected semver X.Y.Z, got '{version}'"
+    assert cfg.get("tipi_version", 0) >= 2, "[REG-026] tipi_version must be >= 2"
+
+    expected_image = f"ghcr.io/murkbra/email-oauth2-proxy-ui:{version}"
+    actual_image = compose["services"]["email-oauth2-proxy-ui"].get("image")
+    assert actual_image == expected_image, (
+        f"[REG-026] Compose image '{actual_image}' must match config.json version '{expected_image}'"
+    )
+    assert "steps.appver.outputs.version" in wf_text
+
 
 
 

@@ -32,14 +32,17 @@ def test_email_oauth2_proxy_ui_config_fields(get_app_config):
     assert fields_by_var["ADMIN_PASSWORD"]["required"] is False
 
 
-def test_email_oauth2_proxy_ui_compose_structure(get_app_compose):
+def test_email_oauth2_proxy_ui_compose_structure(get_app_config, get_app_compose):
+    config = get_app_config("email-oauth2-proxy-ui")
     compose = get_app_compose("email-oauth2-proxy-ui")
     services = compose["services"]
 
     assert "email-oauth2-proxy-ui" in services
     svc = services["email-oauth2-proxy-ui"]
 
-    assert svc.get("image") == "ghcr.io/murkbra/email-oauth2-proxy-ui:latest"
+    assert config["version"] != "latest"
+    assert config["tipi_version"] >= 2
+    assert svc.get("image") == f"ghcr.io/murkbra/email-oauth2-proxy-ui:{config['version']}"
     assert svc.get("container_name") == "email-oauth2-proxy-ui"
     assert svc.get("restart") == "unless-stopped"
 
