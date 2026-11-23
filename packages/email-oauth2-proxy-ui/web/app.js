@@ -1,4 +1,9 @@
+const LANG_STORAGE_KEY = 'eop_ui_lang';
+
 const state = {
+  langMode: 'auto',
+  lang: 'en',
+  activeTab: 'dashboard',
   overview: null,
   templates: [],
   pendingAuths: [],
@@ -8,11 +13,144 @@ const state = {
   oauthPollTimer: null,
   oauthAuthURL: '',
   oauthSummaryText: '',
+  lastOAuthSession: null,
   modalSummaryText: '',
   logSource: null,
   logsPaused: false,
+  logStatusKey: 'logs.disconnected',
   logLines: [],
 };
+
+function detectBrowserLanguage() {
+  const candidates = [];
+  if (Array.isArray(navigator.languages)) {
+    candidates.push(...navigator.languages);
+  }
+  if (navigator.language) candidates.push(navigator.language);
+  if (navigator.userLanguage) candidates.push(navigator.userLanguage);
+
+  for (const raw of candidates) {
+    const norm = String(raw || '').trim().toLowerCase();
+    if (!norm) continue;
+    if (norm === 'pt' || norm.startsWith('pt-')) return 'pt';
+    if (norm === 'en' || norm.startsWith('en-')) return 'en';
+  }
+  return 'en';
+}
+
+function resolveLanguage(mode) {
+  if (mode === 'en' || mode === 'pt') return mode;
+  return detectBrowserLanguage();
+}
+
+function t(key, vars) {
+  const dict = (window.I18N_TRANSLATIONS && window.I18N_TRANSLATIONS[state.lang]) || {};
+  const fallback = (window.I18N_TRANSLATIONS && window.I18N_TRANSLATIONS.en) || {};
+  let text = dict[key] ?? fallback[key] ?? key;
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) {
+      text = text.replaceAll(`{${k}}`, String(v ?? ''));
+    }
+  }
+  return text;
+}
+
+function getDateLocale() {
+  return state.lang === 'pt' ? 'pt-BR' : 'en-US';
+}
+
+function applyDOMTranslations() {
+  document.documentElement.lang = state.lang === 'pt' ? 'pt-BR' : 'en';
+  document.title = t('page.title');
+
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    const key = el.getAttribute('data-i18n');
+    if (key) el.textContent = t(key);
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach((el) => {
+    const key = el.getAttribute('data-i18n-html');
+    if (key) el.innerHTML = t(key);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (key) el.placeholder = t(key);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+    const key = el.getAttribute('data-i18n-title');
+    if (key) el.title = t(key);
+  });
+
+  const langSelect = document.getElementById('lang-select');
+  if (langSelect) {
+    langSelect.value = state.langMode;
+  }
+
+  updateTabHeader(state.activeTab);
+
+  const toggleBtn = document.getElementById('btn-logs-toggle');
+  if (toggleBtn) {
+    toggleBtn.textContent = t(state.logsPaused ? 'logs.resume' : 'logs.pause');
+  }
+  const sseBadge = document.getElementById('logs-sse-badge');
+  if (sseBadge && state.logStatusKey) {
+    sseBadge.textContent = t(state.logStatusKey);
+  }
+}
+
+function setLanguageMode(mode, persist = true) {
+  const validMode = (mode === 'en' || mode === 'pt' || mode === 'auto') ? mode : 'auto';
+  state.langMode = validMode;
+  state.lang = resolveLanguage(validMode);
+  if (persist) {
+    try {
+      localStorage.setItem(LANG_STORAGE_KEY, validMode);
+    } catch (_) {}
+  }
+
+  applyDOMTranslations();
+
+  if (state.overview) {
+    renderDashboard(state.overview);
+    renderDebugButton(state.overview.debug_mode, state.overview.debug_known);
+    state.pendingSignature = '';
+    renderPendingAuths(state.pendingAuths || []);
+    renderServersTable(state.overview.servers || []);
+    renderConfigAccountsTable(state.overview.accounts || []);
+    renderCerts(state.overview.certs || {});
+    populateOAuthPorts(state.overview.servers || []);
+
+    const portsModal = document.getElementById('ports-modal');
+    if (portsModal && !portsModal.classList.contains('hidden')) {
+      renderPortsModal(state.overview.docker_ports);
+    }
+  } else {
+    renderDebugButton(false, false);
+  }
+
+  if (state.lastOAuthSession) {
+    renderOAuthSession(state.lastOAuthSession);
+  }
+
+  const accModal = document.getElementById('account-modal');
+  if (accModal && !accModal.classList.contains('hidden')) {
+    updateAccountModalFlowUI();
+  }
+}
+
+function initLanguage() {
+  let saved = 'auto';
+  try {
+    saved = localStorage.getItem(LANG_STORAGE_KEY) || 'auto';
+  } catch (_) {}
+  setLanguageMode(saved, false);
+
+  const langSelect = document.getElementById('lang-select');
+  if (langSelect) {
+    langSelect.addEventListener('change', (e) => {
+      setLanguageMode(e.target.value, true);
+    });
+  }
+}
 
 function openCenteredPopup(url) {
   if (!url) return;
@@ -26,7 +164,7 @@ function openCenteredPopup(url) {
     `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`
   );
   if (!pop) {
-    toast('Popup bloqueado pelo navegador — permita popups ou use Copiar URL.', 'error');
+    toast(t('common.popup_blocked'), 'error');
   }
 }
 
@@ -43,31 +181,37 @@ function formatProtocolLabel(proto) {
 function formatSecurityLabel(srv) {
   if (srv.local_tls) return 'TLS (SSL/TLS)';
   if (srv.local_starttls) return 'STARTTLS';
-  return 'Sem TLS (local)';
+  return t('dash.no_tls_local');
 }
 
 function buildAccountSummaryText(email, servers) {
   const hostExternal = window.location.hostname;
   const hostInternal = state.overview?.proxy_host || 'email-oauth2-proxy';
   const lines = [
-    `Conta: ${email}`,
-    `Servidor externo (PC/Celular): ${hostExternal}`,
-    `Servidor interno (Docker/Runtipi): ${hostInternal}`,
-    `Usuário: ${email}`,
-    `Senha: (sua senha local definida no proxy)`,
+    t('acc.summary_account', { email }),
+    t('acc.summary_ext', { host: hostExternal }),
+    t('acc.summary_int', { host: hostInternal }),
+    t('acc.summary_user', { email }),
+    t('acc.summary_pass'),
     ``,
-    `Portas disponíveis:`,
+    t('acc.summary_ports'),
   ];
   for (const s of servers) {
     const label = formatProtocolLabel(s.protocol);
-    lines.push(`- ${s.section} (${label}) | Porta: ${s.local_port} | Segurança: ${formatSecurityLabel(s)} | Destino: ${s.server_address}:${s.server_port}`);
+    lines.push(t('acc.summary_port_line', {
+      section: s.section,
+      proto: label,
+      port: s.local_port,
+      sec: formatSecurityLabel(s),
+      target: `${s.server_address}:${s.server_port}`,
+    }));
   }
   return lines.join('\n');
 }
 
 function renderPortsListHTML(servers, probes) {
   if (!servers || servers.length === 0) {
-    return `<div class="muted small">Nenhuma porta correspondente encontrada no <code>emailproxy.config</code>.</div>`;
+    return `<div class="muted small">${t('ports.none_matching')}</div>`;
   }
   const probeBySec = new Map((probes || []).map(p => [p.section, p]));
   return `<div class="ports-list">` + servers.map(s => {
@@ -88,20 +232,25 @@ function renderPortsListHTML(servers, probes) {
           ${statusPill}
         </div>
         <div class="muted small" style="font-family:var(--mono);">
-          Porta <strong>${s.local_port}</strong> → ${escapeHtml(s.server_address)}:${s.server_port}
+          ${t('ports.port_line', { port: s.local_port, target: `${escapeHtml(s.server_address)}:${s.server_port}` })}
         </div>
       </div>
     `;
   }).join('') + `</div>`;
 }
 
-const TAB_META = {
-  dashboard: ['Dashboard', 'Visão geral das portas, contas e tokens OAuth 2.0'],
-  oauth: ['Autenticar Conta (OAuth 1-Clique)', 'Dispara login IMAP no proxy, captura o link e conclui o callback automaticamente'],
-  config: ['Configuração & Templates', 'Adicione provedores com presets consolidados (Thunderbird) ou edite o emailproxy.config'],
-  certs: ['Certificados TLS', 'Gere CA local + certificado SAN para clientes modernos (ex.: MailCraft) e baixe o ca-cert.crt'],
-  logs: ['Logs ao Vivo', 'Acompanhe /config/emailproxy.log em tempo real'],
-};
+function updateTabHeader(tab) {
+  const metaKeys = {
+    dashboard: ['tab.dashboard.title', 'tab.dashboard.sub'],
+    oauth: ['tab.oauth.title', 'tab.oauth.sub'],
+    config: ['tab.config.title', 'tab.config.sub'],
+    certs: ['tab.certs.title', 'tab.certs.sub'],
+    logs: ['tab.logs.title', 'tab.logs.sub'],
+  };
+  const pair = metaKeys[tab];
+  document.getElementById('page-title').textContent = pair ? t(pair[0]) : t('tab.dashboard.title');
+  document.getElementById('page-subtitle').textContent = pair ? t(pair[1]) : '';
+}
 
 async function api(url, opts = {}) {
   const res = await fetch(url, {
@@ -110,11 +259,11 @@ async function api(url, opts = {}) {
   });
   if (res.status === 401) {
     showLoginOverlay();
-    throw new Error('Sessão expirada — faça login novamente.');
+    throw new Error(t('common.session_expired'));
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.error || `Erro HTTP ${res.status}`);
+    throw new Error(data.error || t('common.http_error', { status: res.status }));
   }
   return data;
 }
@@ -127,7 +276,7 @@ function toast(msg, type = 'info') {
   setTimeout(() => el.remove(), 4200);
 }
 
-function confirmDialog({ title = 'Confirmar ação', message = '', confirmLabel = 'Confirmar', danger = true } = {}) {
+function confirmDialog({ title, message = '', confirmLabel, danger = true } = {}) {
   return new Promise((resolve) => {
     const overlay = document.getElementById('confirm-modal');
     const titleEl = document.getElementById('confirm-modal-title');
@@ -136,9 +285,9 @@ function confirmDialog({ title = 'Confirmar ação', message = '', confirmLabel 
     const cancelBtn = document.getElementById('confirm-modal-cancel');
     const closeBtn = document.getElementById('confirm-modal-close');
 
-    titleEl.textContent = title;
+    titleEl.textContent = title || t('common.confirm_title');
     msgEl.textContent = message;
-    okBtn.textContent = confirmLabel;
+    okBtn.textContent = confirmLabel || t('common.confirm');
     okBtn.className = `btn btn-sm ${danger ? 'btn-danger' : 'btn-primary'}`;
 
     const cleanup = (result) => {
@@ -178,7 +327,7 @@ function escapeHtml(str) {
 function formatUnix(ts) {
   if (!ts) return '—';
   const d = new Date(ts * 1000);
-  return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+  return d.toLocaleString(getDateLocale(), { dateStyle: 'short', timeStyle: 'short' });
 }
 
 function showReloadHint(reloadRes) {
@@ -192,7 +341,7 @@ function showReloadHint(reloadRes) {
   }
   txt.textContent = (reloadRes && reloadRes.message)
     ? reloadRes.message
-    : 'Alteração salva! Reinicie o container do Email OAuth2 Proxy no Runtipi para aplicar.';
+    : t('banner.default_reload');
   const canRestart = !!(reloadRes?.supported || state.overview?.restart_available);
   btn.classList.toggle('hidden', !canRestart);
   banner.classList.remove('hidden');
@@ -223,11 +372,10 @@ function hideReloadBanner() {
 }
 
 function switchTab(tab) {
+  state.activeTab = tab;
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${tab}`));
-  const [title, sub] = TAB_META[tab] || ['Painel', ''];
-  document.getElementById('page-title').textContent = title;
-  document.getElementById('page-subtitle').textContent = sub;
+  updateTabHeader(tab);
 
   if (tab === 'logs') {
     connectLogStream();
@@ -305,9 +453,9 @@ function renderDebugButton(debugMode, debugKnown) {
   const btn = document.getElementById('btn-toggle-debug');
   if (!btn) return;
   if (!debugKnown) {
-    btn.textContent = 'Debug: Desconhecido';
+    btn.textContent = t('sidebar.debug_unknown');
   } else {
-    btn.textContent = debugMode ? 'Debug: Ligado' : 'Debug: Desligado';
+    btn.textContent = debugMode ? t('sidebar.debug_on') : t('sidebar.debug_off');
   }
 }
 
@@ -334,7 +482,6 @@ function renderPendingAuths(list) {
   countBadge.textContent = String(state.pendingAuths.length);
   card.classList.remove('hidden');
 
-  // Avoid wiping user input if the pending items haven't changed
   if (sig === state.pendingSignature) return;
   state.pendingSignature = sig;
 
@@ -343,22 +490,22 @@ function renderPendingAuths(list) {
       <div class="card-header" style="margin-bottom:0;">
         <div>
           <strong>${escapeHtml(p.email)}</strong>
-          <span class="muted small" style="margin-left:8px;">Detectado às ${new Date(p.detected_at).toLocaleTimeString('pt-BR')}</span>
+          <span class="muted small" style="margin-left:8px;">${escapeHtml(t('pending.detected_at', { time: new Date(p.detected_at).toLocaleTimeString(getDateLocale()) }))}</span>
         </div>
-        <button type="button" class="btn btn-ghost btn-xs" onclick="dismissPendingByIndex(${idx})">Dispensar</button>
+        <button type="button" class="btn btn-ghost btn-xs" onclick="dismissPendingByIndex(${idx})">${escapeHtml(t('pending.dismiss'))}</button>
       </div>
       <div class="row">
-        <button type="button" class="btn btn-primary btn-sm" onclick="openPendingPopupByIndex(${idx})">Abrir Login no Provedor</button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="copyPendingURLByIndex(${idx})">Copiar URL</button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="openPendingPopupByIndex(${idx})">${escapeHtml(t('pending.open_login'))}</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="copyPendingURLByIndex(${idx})">${escapeHtml(t('pending.copy_url'))}</button>
       </div>
       ${p.device_code
         ? `<div class="device-code-row">
             <code class="device-code">${escapeHtml(p.device_code)}</code>
-            <button type="button" class="btn btn-secondary btn-xs" onclick="copyPendingCodeByIndex(${idx})">Copiar Código</button>
+            <button type="button" class="btn btn-secondary btn-xs" onclick="copyPendingCodeByIndex(${idx})">${escapeHtml(t('pending.copy_code'))}</button>
           </div>`
         : `<form class="row" style="flex-wrap:nowrap;" onsubmit="submitPendingCallbackForm(event, ${idx})">
-            <input type="text" id="pending-cb-input-${idx}" placeholder="Cole a URL final (?code=...&state=...) — envia automaticamente ao colar" onpaste="handlePendingPaste(event, ${idx})" required />
-            <button type="submit" class="btn btn-success btn-sm" style="white-space:nowrap;">Enviar Callback</button>
+            <input type="text" id="pending-cb-input-${idx}" placeholder="${escapeHtml(t('pending.cb_placeholder'))}" onpaste="handlePendingPaste(event, ${idx})" required />
+            <button type="submit" class="btn btn-success btn-sm" style="white-space:nowrap;">${escapeHtml(t('pending.send_cb'))}</button>
           </form>`}
     </div>
   `).join('');
@@ -371,12 +518,12 @@ window.openPendingPopupByIndex = (idx) => {
 
 window.copyPendingURLByIndex = (idx) => {
   const p = state.pendingAuths[idx];
-  if (p) navigator.clipboard.writeText(p.auth_url).then(() => toast('Link copiado!', 'success'));
+  if (p) navigator.clipboard.writeText(p.auth_url).then(() => toast(t('common.link_copied'), 'success'));
 };
 
 window.copyPendingCodeByIndex = (idx) => {
   const p = state.pendingAuths[idx];
-  if (p && p.device_code) navigator.clipboard.writeText(p.device_code).then(() => toast('Código copiado!', 'success'));
+  if (p && p.device_code) navigator.clipboard.writeText(p.device_code).then(() => toast(t('common.code_copied'), 'success'));
 };
 
 async function submitPendingCallback(idx, urlVal) {
@@ -387,7 +534,7 @@ async function submitPendingCallback(idx, urlVal) {
       method: 'POST',
       body: JSON.stringify({ url: urlVal }),
     });
-    toast(`Callback enviado para ${p.email}!`, 'success');
+    toast(t('pending.cb_sent', { email: p.email }), 'success');
     renderPendingAuths(res.pending || []);
     setTimeout(loadOverview, 1200);
   } catch (err) {
@@ -431,42 +578,44 @@ function startPendingPolling() {
       const list = data.pending || [];
       renderPendingAuths(list);
       if (list.length > prevCount) {
-        toast(`Novo pedido OAuth pendente para ${list[0].email}!`, 'info');
+        toast(t('pending.new_toast', { email: list[0].email }), 'info');
       }
     } catch (_) {}
   }, 4000);
 }
 
 function renderDashboard(data) {
-  document.getElementById('sidebar-proxy-host').textContent = `Proxy: ${data.proxy_host}`;
-  document.getElementById('proxy-host-label').textContent = `Host interno: ${data.proxy_host}`;
+  document.getElementById('sidebar-proxy-host').textContent = `${t('sidebar.proxy_prefix')}: ${data.proxy_host}`;
+  document.getElementById('proxy-host-label').textContent = t('dash.internal_host', { host: data.proxy_host });
 
   const probes = data.probes || [];
   const onlineCount = probes.filter(p => p.online).length;
   document.getElementById('kpi-ports').textContent = `${onlineCount} / ${probes.length}`;
   document.getElementById('kpi-ports-sub').textContent = onlineCount === probes.length && probes.length > 0
-    ? 'Todas as portas respondendo' : (probes.length === 0 ? 'Nenhum servidor configurado' : 'Algumas portas offline');
+    ? t('dash.kpi_ports_all_ok') : (probes.length === 0 ? t('dash.kpi_ports_none') : t('dash.kpi_ports_partial'));
 
   const accounts = data.accounts || [];
   const realAccounts = accounts.filter(a => !a.is_catch_all);
   const authAccounts = realAccounts.filter(a => a.token_status === 'authenticated').length;
   document.getElementById('kpi-accounts').textContent = `${authAccounts} / ${realAccounts.length}`;
-  document.getElementById('kpi-accounts-sub').textContent = `${accounts.filter(a => a.is_catch_all).length} regra(s) catch-all`;
+  document.getElementById('kpi-accounts-sub').textContent = t('dash.kpi_accounts_catchall', {
+    count: accounts.filter(a => a.is_catch_all).length,
+  });
 
   const tlsEnabledServers = (data.servers || []).filter(s => s.local_tls || s.local_starttls).length;
-  document.getElementById('kpi-tls').textContent = data.certs?.has_server_cert ? 'Ativo' : 'Sem Cert';
-  document.getElementById('kpi-tls-sub').textContent = `${tlsEnabledServers} servidor(es) com TLS`;
+  document.getElementById('kpi-tls').textContent = data.certs?.has_server_cert ? t('dash.kpi_tls_active') : t('dash.kpi_tls_missing');
+  document.getElementById('kpi-tls-sub').textContent = t('dash.kpi_tls_sub', { count: tlsEnabledServers });
 
-  document.getElementById('kpi-catchall').textContent = data.globals?.allow_catch_all_accounts ? 'Ligado' : 'Desligado';
+  document.getElementById('kpi-catchall').textContent = data.globals?.allow_catch_all_accounts ? t('dash.kpi_catchall_on') : t('dash.kpi_catchall_off');
   document.getElementById('kpi-catchall-sub').textContent = data.globals?.allow_catch_all_accounts
-    ? 'Aceita múltiplas contas por domínio' : 'Somente contas listadas';
+    ? t('dash.kpi_catchall_sub_on') : t('dash.kpi_catchall_sub_off');
 
   const dp = data.docker_ports || {};
   const dpStatusByPort = new Map((dp.statuses || []).map(st => [st.port, st]));
   const unpubCount = (dp.statuses || []).filter(st => !st.protected && !st.published_on_proxy).length;
   const pendingBadge = document.getElementById('docker-ports-pending-badge');
   if (dp.docker_available && unpubCount > 0) {
-    pendingBadge.textContent = `${unpubCount} só interna(s)`;
+    pendingBadge.textContent = t('dash.ports_internal_count', { count: unpubCount });
     pendingBadge.classList.remove('hidden');
   } else {
     pendingBadge.classList.add('hidden');
@@ -476,18 +625,18 @@ function renderDashboard(data) {
   // Ports grid
   const portsGrid = document.getElementById('ports-grid');
   if (probes.length === 0) {
-    portsGrid.innerHTML = `<div class="empty-state">Nenhum servidor configurado ainda. Vá em <strong>Config &amp; Templates</strong> para adicionar Outlook, Gmail ou Yahoo em 1 clique.</div>`;
+    portsGrid.innerHTML = `<div class="empty-state">${t('dash.no_servers_empty')}</div>`;
   } else {
     portsGrid.innerHTML = probes.map(p => {
       const dst = dpStatusByPort.get(p.local_port);
       let dockerBadge = '';
       if (dp.docker_available && dst) {
         if (dst.published_on_proxy) {
-          dockerBadge = `<span class="badge badge-success">Docker: Aberta</span>`;
+          dockerBadge = `<span class="badge badge-success">${escapeHtml(t('dash.docker_open'))}</span>`;
         } else if (dst.status === 'conflict_docker' || dst.status === 'conflict_host') {
-          dockerBadge = `<span class="badge badge-danger" title="${escapeHtml(dst.message)}">Docker: Conflito</span>`;
+          dockerBadge = `<span class="badge badge-danger" title="${escapeHtml(dst.message)}">${escapeHtml(t('dash.docker_conflict'))}</span>`;
         } else {
-          dockerBadge = `<span class="badge badge-warn" title="Acessível só dentro da rede Docker — abra no Docker se usar clientes externos">Docker: Só interna</span>`;
+          dockerBadge = `<span class="badge badge-warn" title="${escapeHtml(t('dash.docker_internal_title'))}">${escapeHtml(t('dash.docker_internal'))}</span>`;
         }
       }
       return `
@@ -501,7 +650,7 @@ function renderDashboard(data) {
           <div class="port-target">→ ${escapeHtml(p.server_address)}:${p.server_port}</div>
           <div class="row">
             <span class="badge ${p.local_tls ? 'badge-info' : (p.local_starttls ? 'badge-warn' : 'badge-muted')}">
-              ${p.local_tls ? 'TLS' : (p.local_starttls ? 'STARTTLS' : 'Sem TLS')}
+              ${p.local_tls ? 'TLS' : (p.local_starttls ? 'STARTTLS' : escapeHtml(t('dash.no_tls')))}
             </span>
             ${dockerBadge}
           </div>
@@ -514,36 +663,36 @@ function renderDashboard(data) {
   // Accounts table
   const tbody = document.getElementById('accounts-tbody');
   if (accounts.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="muted" style="text-align:center;padding:24px;">Nenhuma conta ou regra catch-all encontrada.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="muted" style="text-align:center;padding:24px;">${escapeHtml(t('dash.accounts_empty'))}</td></tr>`;
   } else {
     tbody.innerHTML = accounts.map((a, idx) => {
-      let statusBadge = `<span class="badge badge-warn">Pendente</span>`;
-      if (a.token_status === 'authenticated') statusBadge = `<span class="badge badge-success">Autenticada</span>`;
-      else if (a.token_status === 'expired_access') statusBadge = `<span class="badge badge-danger">Expirada</span>`;
-      else if (a.token_status === 'catch_all') statusBadge = `<span class="badge badge-info">Regra Catch-All</span>`;
+      let statusBadge = `<span class="badge badge-warn">${escapeHtml(t('dash.status_pending'))}</span>`;
+      if (a.token_status === 'authenticated') statusBadge = `<span class="badge badge-success">${escapeHtml(t('dash.status_authenticated'))}</span>`;
+      else if (a.token_status === 'expired_access') statusBadge = `<span class="badge badge-danger">${escapeHtml(t('dash.status_expired'))}</span>`;
+      else if (a.token_status === 'catch_all') statusBadge = `<span class="badge badge-info">${escapeHtml(t('dash.status_catch_all'))}</span>`;
 
       const isAuth = a.token_status === 'authenticated';
       const hasAnyToken = !!(a.has_refresh_token || a.has_access_token);
 
       const statusCell = `<div class="cell-stack">
         ${statusBadge}
-        ${!a.is_catch_all && hasAnyToken ? `<button class="btn btn-secondary btn-xs" onclick="clearTokenByIndex(${idx})">Limpar</button>` : ''}
+        ${!a.is_catch_all && hasAnyToken ? `<button class="btn btn-secondary btn-xs" onclick="clearTokenByIndex(${idx})">${escapeHtml(t('dash.btn_clear'))}</button>` : ''}
       </div>`;
 
       const refreshCell = a.is_catch_all
         ? `<span class="muted">—</span>`
         : (a.has_refresh_token
-          ? `<span class="badge badge-success">Salvo</span>`
+          ? `<span class="badge badge-success">${escapeHtml(t('dash.refresh_saved'))}</span>`
           : `<div class="cell-stack">
-              <span class="badge badge-muted">Nenhum</span>
-              <button class="btn btn-primary btn-xs" onclick="prefillOAuthByIndex(${idx})">Autenticar</button>
+              <span class="badge badge-muted">${escapeHtml(t('dash.refresh_none'))}</span>
+              <button class="btn btn-primary btn-xs" onclick="prefillOAuthByIndex(${idx})">${escapeHtml(t('dash.btn_auth'))}</button>
             </div>`);
 
       const timeInfo = a.is_catch_all
         ? `<span class="muted small">Client: ${escapeHtml((a.client_id || '').slice(0, 22))}…</span>`
-        : `<div class="small">Expira: ${formatUnix(a.access_token_expiry)}</div><div class="muted small">Último uso: ${formatUnix(a.last_activity)}</div>`;
+        : `<div class="small">${escapeHtml(t('dash.expires_prefix', { val: formatUnix(a.access_token_expiry) }))}</div><div class="muted small">${escapeHtml(t('dash.last_used_prefix', { val: formatUnix(a.last_activity) }))}</div>`;
 
-      const actions = `<button class="btn btn-danger btn-xs" onclick="deleteAccountByIndex(${idx}, ${!a.is_catch_all})">Remover</button>`;
+      const actions = `<button class="btn btn-danger btn-xs" onclick="deleteAccountByIndex(${idx}, ${!a.is_catch_all})">${escapeHtml(t('dash.btn_remove'))}</button>`;
 
       const portText = (!a.is_catch_all && (a.matched_servers || []).length > 0)
         ? `<span class="muted small" style="font-family:var(--mono);">${a.matched_servers.map(s => escapeHtml(s.section)).join(' · ')}</span>`
@@ -551,7 +700,7 @@ function renderDashboard(data) {
 
       const accountBottomRow = (!a.is_catch_all && (isAuth || portText))
         ? `<div class="row">
-            ${isAuth ? `<button class="btn btn-secondary btn-xs" onclick="openAccountInfoByIndex(${idx})">Portas</button>` : ''}
+            ${isAuth ? `<button class="btn btn-secondary btn-xs" onclick="openAccountInfoByIndex(${idx})">${escapeHtml(t('dash.btn_ports'))}</button>` : ''}
             ${portText}
           </div>`
         : '';
@@ -562,7 +711,7 @@ function renderDashboard(data) {
             <div class="cell-stack">
               <div class="row">
                 <strong>${escapeHtml(a.account)}</strong>
-                ${a.from_cache_only ? `<span class="badge badge-muted">via catch-all</span>` : ''}
+                ${a.from_cache_only ? `<span class="badge badge-muted">${escapeHtml(t('dash.via_catchall'))}</span>` : ''}
               </div>
               ${accountBottomRow}
             </div>
@@ -591,19 +740,21 @@ window.openAccountInfoByIndex = (idx) => {
   state.modalSummaryText = buildAccountSummaryText(acc.account, servers);
 
   document.getElementById('acc-modal-title').textContent = acc.account;
+  const statusStr = acc.token_status === 'authenticated' ? t('dash.status_authenticated') : acc.token_status;
   document.getElementById('acc-modal-sub').textContent =
-    `Status: ${acc.token_status === 'authenticated' ? 'Autenticada' : acc.token_status} · Expira: ${formatUnix(acc.access_token_expiry)} · Último uso: ${formatUnix(acc.last_activity)}`;
+    `Status: ${statusStr} · ${t('dash.expires_prefix', { val: formatUnix(acc.access_token_expiry) })} · ${t('dash.last_used_prefix', { val: formatUnix(acc.last_activity) })}`;
 
+  const serverListStr = servers.map(s => escapeHtml(s.section)).join(', ') || escapeHtml(t('acc.none_lower'));
   document.getElementById('acc-modal-body').innerHTML = `
     <div class="subcard">
-      <div class="subcard-title">Dados de Conexão (Servidor Dinâmico)</div>
-      <div class="small"><strong>Servidor externo (PC / MailCraft / Celular):</strong> <code>${escapeHtml(hostExternal)}</code></div>
-      <div class="small"><strong>Servidor interno (Docker / Runtipi):</strong> <code>${escapeHtml(hostInternal)}</code></div>
-      <div class="small"><strong>Usuário:</strong> <code>${escapeHtml(acc.account)}</code></div>
-      <div class="small"><strong>Senha:</strong> <span class="muted">a senha local usada na autenticação desta conta</span></div>
+      <div class="subcard-title">${escapeHtml(t('acc.info_conn_title'))}</div>
+      <div class="small"><strong>${escapeHtml(t('acc.info_ext_server'))}</strong> <code>${escapeHtml(hostExternal)}</code></div>
+      <div class="small"><strong>${escapeHtml(t('acc.info_int_server'))}</strong> <code>${escapeHtml(hostInternal)}</code></div>
+      <div class="small"><strong>${escapeHtml(t('acc.info_user'))}</strong> <code>${escapeHtml(acc.account)}</code></div>
+      <div class="small"><strong>${escapeHtml(t('acc.info_pass'))}</strong> <span class="muted">${escapeHtml(t('acc.info_pass_hint'))}</span></div>
     </div>
     <div class="subcard">
-      <div class="subcard-title">Portas Disponíveis (${servers.map(s => escapeHtml(s.section)).join(', ') || 'nenhuma'})</div>
+      <div class="subcard-title">${t('acc.info_ports_title', { list: serverListStr })}</div>
       ${renderPortsListHTML(servers, probes)}
     </div>
   `;
@@ -613,7 +764,7 @@ window.openAccountInfoByIndex = (idx) => {
 
 document.getElementById('btn-copy-acc-summary').addEventListener('click', () => {
   if (!state.modalSummaryText) return;
-  navigator.clipboard.writeText(state.modalSummaryText).then(() => toast('Resumo de conexão copiado!', 'success'));
+  navigator.clipboard.writeText(state.modalSummaryText).then(() => toast(t('acc.summary_copied'), 'success'));
 });
 
 window.prefillOAuthByIndex = (idx) => {
@@ -629,14 +780,14 @@ window.clearTokenByIndex = async (idx) => {
   if (!acc) return;
   const account = acc.account;
   const ok = await confirmDialog({
-    title: 'Limpar tokens',
-    message: `Remover os tokens salvos de ${account}? Você precisará autenticar esta conta novamente.`,
-    confirmLabel: 'Limpar',
+    title: t('common.clear_tokens_title'),
+    message: t('common.clear_tokens_msg', { account }),
+    confirmLabel: t('dash.btn_clear'),
   });
   if (!ok) return;
   try {
     const res = await api(`/api/tokens/${encodeURIComponent(account)}`, { method: 'DELETE' });
-    toast(`Tokens de ${account} removidos.`, 'success');
+    toast(t('common.tokens_removed', { account }), 'success');
     showReloadHint(res.reload);
     await loadOverview();
   } catch (err) {
@@ -649,14 +800,16 @@ window.deleteAccountByIndex = async (idx, clearToken) => {
   if (!acc) return;
   const account = acc.account;
   const ok = await confirmDialog({
-    title: 'Remover conta',
-    message: `Remover ${account} da configuração${clearToken ? ' e apagar os tokens salvos' : ''}?`,
-    confirmLabel: 'Remover',
+    title: t('common.delete_acc_title'),
+    message: clearToken
+      ? t('common.delete_acc_msg_with_token', { account })
+      : t('common.delete_acc_msg_no_token', { account }),
+    confirmLabel: t('dash.btn_remove'),
   });
   if (!ok) return;
   try {
     const res = await api(`/api/accounts/${encodeURIComponent(account)}?clear_token=${clearToken}`, { method: 'DELETE' });
-    toast(`${account} removido.`, 'success');
+    toast(t('common.account_removed', { account }), 'success');
     showReloadHint(res.reload);
     await loadOverview();
   } catch (err) {
@@ -669,8 +822,8 @@ function populateOAuthPorts(servers) {
   const sel = document.getElementById('oauth-port');
   const current = sel.value;
   const imaps = servers.filter(s => s.protocol === 'IMAP');
-  sel.innerHTML = `<option value="">Automático (detectar pelo domínio do e-mail)</option>` +
-    imaps.map(s => `<option value="${s.local_port}">Porta ${s.local_port} → ${escapeHtml(s.server_address)} (${s.local_tls ? 'TLS' : 'Sem TLS'})</option>`).join('');
+  sel.innerHTML = `<option value="">${escapeHtml(t('oauth.port_auto'))}</option>` +
+    imaps.map(s => `<option value="${s.local_port}">${escapeHtml(t('oauth.port_option', { port: s.local_port, host: s.server_address, tls: s.local_tls ? 'TLS' : t('dash.no_tls') }))}</option>`).join('');
   sel.value = current;
 }
 
@@ -709,7 +862,7 @@ document.getElementById('btn-oauth-cancel').addEventListener('click', async () =
   stopOAuthPolling();
   document.getElementById('btn-oauth-start').disabled = false;
   document.getElementById('btn-oauth-cancel').classList.add('hidden');
-  toast('Autenticação cancelada.', 'info');
+  toast(t('oauth.cancelled_toast'), 'info');
 });
 
 async function submitOAuthCallbackURL(pasted) {
@@ -722,7 +875,7 @@ async function submitOAuthCallbackURL(pasted) {
       method: 'POST',
       body: JSON.stringify({ url: pasted }),
     });
-    toast('Callback enviado ao proxy! Aguardando confirmação IMAP...', 'info');
+    toast(t('oauth.cb_sent_waiting'), 'info');
     if (res.session) renderOAuthSession(res.session);
   } catch (err) {
     toast(err.message, 'error');
@@ -736,7 +889,6 @@ document.getElementById('oauth-callback-form').addEventListener('submit', async 
   await submitOAuthCallbackURL(document.getElementById('oauth-callback-input').value.trim());
 });
 
-// Auto-submit immediately when user pastes a callback URL containing code= or error=
 document.getElementById('oauth-callback-input').addEventListener('paste', (e) => {
   const pasted = (e.clipboardData || window.clipboardData)?.getData('text')?.trim() || '';
   if (pasted && (pasted.includes('code=') || pasted.includes('error='))) {
@@ -746,18 +898,16 @@ document.getElementById('oauth-callback-input').addEventListener('paste', (e) =>
   }
 });
 
-// Open login in a centered popup so automatic /oauth/callback can close it via window.opener
 document.getElementById('oauth-open-popup').addEventListener('click', () => {
   openCenteredPopup(state.oauthAuthURL);
 });
 
-// Listen for automatic callback completion from GET /oauth/callback popup
 window.addEventListener('message', async (ev) => {
   if (ev.origin !== window.location.origin) return;
   const data = ev.data;
   if (!data || data.type !== 'eop_oauth_callback') return;
   if (data.ok) {
-    toast('Callback OAuth recebido automaticamente!', 'success');
+    toast(t('oauth.auto_cb_received'), 'success');
     if (state.oauthSessionId) {
       try {
         const sess = await api(`/api/oauth/session/${state.oauthSessionId}`);
@@ -771,17 +921,17 @@ window.addEventListener('message', async (ev) => {
 
 document.getElementById('btn-copy-auth-url').addEventListener('click', () => {
   if (!state.oauthAuthURL) return;
-  navigator.clipboard.writeText(state.oauthAuthURL).then(() => toast('Link copiado!', 'success'));
+  navigator.clipboard.writeText(state.oauthAuthURL).then(() => toast(t('common.link_copied'), 'success'));
 });
 
 document.getElementById('btn-copy-device-code').addEventListener('click', () => {
   const code = document.getElementById('oauth-device-code').textContent;
-  navigator.clipboard.writeText(code).then(() => toast('Código copiado!', 'success'));
+  navigator.clipboard.writeText(code).then(() => toast(t('common.code_copied'), 'success'));
 });
 
 document.getElementById('btn-copy-oauth-summary').addEventListener('click', () => {
   if (!state.oauthSummaryText) return;
-  navigator.clipboard.writeText(state.oauthSummaryText).then(() => toast('Resumo de conexão copiado!', 'success'));
+  navigator.clipboard.writeText(state.oauthSummaryText).then(() => toast(t('acc.summary_copied'), 'success'));
 });
 
 function startOAuthPolling(id) {
@@ -793,7 +943,7 @@ function startOAuthPolling(id) {
         stopOAuthPolling();
         document.getElementById('btn-oauth-start').disabled = false;
         if (sess.status === 'success') {
-          toast(`Conta ${sess.email} autenticada com sucesso!`, 'success');
+          toast(t('oauth.auth_success_toast', { email: sess.email }), 'success');
           loadOverview();
         }
       }
@@ -812,6 +962,7 @@ function stopOAuthPolling() {
 }
 
 function renderOAuthSession(sess) {
+  state.lastOAuthSession = sess;
   document.getElementById('oauth-idle').classList.add('hidden');
   document.getElementById('oauth-active').classList.remove('hidden');
 
@@ -824,12 +975,12 @@ function renderOAuthSession(sess) {
   const cancelBtn = document.getElementById('btn-oauth-cancel');
 
   const badgeMap = {
-    connecting: ['badge-info', 'Conectando...'],
-    awaiting_user: ['badge-warn', 'Aguardando Login'],
-    exchanging: ['badge-info', 'Trocando Token...'],
-    success: ['badge-success', 'Concluído'],
-    error: ['badge-danger', 'Erro'],
-    cancelled: ['badge-muted', 'Cancelado'],
+    connecting: ['badge-info', t('oauth.status_connecting')],
+    awaiting_user: ['badge-warn', t('oauth.status_awaiting')],
+    exchanging: ['badge-info', t('oauth.status_exchanging')],
+    success: ['badge-success', t('oauth.status_success')],
+    error: ['badge-danger', t('oauth.status_error')],
+    cancelled: ['badge-muted', t('oauth.status_cancelled')],
   };
   const [cls, label] = badgeMap[sess.status] || ['badge-muted', sess.status];
   badge.className = `badge ${cls}`;
@@ -848,8 +999,8 @@ function renderOAuthSession(sess) {
     state.oauthAuthURL = sess.auth_url;
     urlBox.classList.remove('hidden');
     document.getElementById('oauth-url-help').innerHTML = isAutoCallback
-      ? `Callback automático ativo (<code>${escapeHtml(panelCb)}</code>). Clique abaixo para abrir o login no popup — ao aprovar, a janela fecha sozinha!`
-      : `Clique abaixo para abrir o login no popup. Após aprovar, o navegador vai redirecionar para <code>${escapeHtml(sess.redirect_uri || 'localhost')}</code> — copie a URL final e cole no Passo B (envia sozinho ao colar).`;
+      ? t('oauth.help_auto_cb', { url: escapeHtml(panelCb) })
+      : t('oauth.help_manual_cb', { redirect: escapeHtml(sess.redirect_uri || 'localhost') });
   } else {
     urlBox.classList.add('hidden');
   }
@@ -862,8 +1013,8 @@ function renderOAuthSession(sess) {
     devBox.classList.add('hidden');
     cbBox.classList.toggle('hidden', !(sess.auth_url && inProgress));
     document.getElementById('oauth-cb-title').textContent = isAutoCallback
-      ? 'Passo B — Aguardando callback automático (ou cole manualmente se preferir)'
-      : 'Passo B — Cole a URL final do navegador (envio automático ao colar)';
+      ? t('oauth.step_b_title_auto')
+      : t('oauth.step_b_title_manual');
   }
 
   if (sess.status === 'success') {
@@ -875,13 +1026,14 @@ function renderOAuthSession(sess) {
       : [{ section: `IMAP-${sess.port}`, protocol: 'IMAP', local_port: sess.port, local_tls: sess.use_tls, server_address: '', server_port: 0 }];
     state.oauthSummaryText = buildAccountSummaryText(sess.email, servers);
 
+    const serverListStr = servers.map(s => escapeHtml(s.section)).join(', ');
     document.getElementById('oauth-client-hints').innerHTML = `
-      <div><strong>Servidor externo (PC / MailCraft / Celular):</strong> <code>${escapeHtml(hostIP)}</code></div>
-      <div><strong>Servidor interno (Docker / Runtipi):</strong> <code>${escapeHtml(proxyHost)}</code></div>
-      <div><strong>Usuário:</strong> <code>${escapeHtml(sess.email)}</code> · <strong>Senha:</strong> a senha local que você informou</div>
-      <div style="margin-top:4px;"><strong>Portas disponíveis (${servers.map(s => escapeHtml(s.section)).join(', ')}):</strong></div>
+      <div><strong>${escapeHtml(t('acc.info_ext_server'))}</strong> <code>${escapeHtml(hostIP)}</code></div>
+      <div><strong>${escapeHtml(t('acc.info_int_server'))}</strong> <code>${escapeHtml(proxyHost)}</code></div>
+      <div><strong>${escapeHtml(t('acc.info_user'))}</strong> <code>${escapeHtml(sess.email)}</code> · <strong>${escapeHtml(t('acc.info_pass'))}</strong> ${escapeHtml(t('acc.info_pass_hint_oauth'))}</div>
+      <div style="margin-top:4px;"><strong>${t('acc.info_ports_title', { list: serverListStr })}</strong></div>
       ${renderPortsListHTML(servers, state.overview?.probes || [])}
-      ${sess.imap_response ? `<div class="muted" style="margin-top:4px;">Resposta IMAP: <code>${escapeHtml(sess.imap_response)}</code></div>` : ''}
+      ${sess.imap_response ? `<div class="muted" style="margin-top:4px;">${escapeHtml(t('oauth.imap_response'))} <code>${escapeHtml(sess.imap_response)}</code></div>` : ''}
     `;
   } else {
     okBox.classList.add('hidden');
@@ -928,8 +1080,9 @@ function updatePresetDetails() {
 }
 
 document.getElementById('btn-use-panel-callback').addEventListener('click', () => {
-  document.getElementById('tpl-redirect-uri').value = getDynamicPanelCallbackURL();
-  toast(`Redirect URI definida para ${getDynamicPanelCallbackURL()}`, 'info');
+  const url = getDynamicPanelCallbackURL();
+  document.getElementById('tpl-redirect-uri').value = url;
+  toast(t('cfg.redirect_set_toast', { url }), 'info');
 });
 
 document.getElementById('tpl-provider').addEventListener('change', updateTemplatePresets);
@@ -959,7 +1112,7 @@ document.getElementById('template-apply-form').addEventListener('submit', async 
         port_mode: portMode,
       }),
     });
-    toast(`Template aplicado para ${res.account}!`, 'success');
+    toast(t('cfg.template_applied', { account: res.account }), 'success');
     showReloadHint(res.reload);
     await loadOverview();
     await loadRawConfig();
@@ -972,7 +1125,7 @@ document.getElementById('template-apply-form').addEventListener('submit', async 
 function renderServersTable(servers) {
   const tbody = document.getElementById('servers-tbody');
   if (servers.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="muted" style="text-align:center;padding:20px;">Nenhum servidor configurado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="muted" style="text-align:center;padding:20px;">${escapeHtml(t('cfg.servers_empty'))}</td></tr>`;
     return;
   }
   tbody.innerHTML = servers.map((s, idx) => `
@@ -980,17 +1133,17 @@ function renderServersTable(servers) {
       <td><code>[${escapeHtml(s.section)}]</code></td>
       <td><code>${escapeHtml(s.local_address)}:${s.local_port}</code></td>
       <td><code>${escapeHtml(s.server_address)}:${s.server_port}</code> ${s.server_starttls ? '<span class="badge badge-muted">STARTTLS</span>' : '<span class="badge badge-muted">SSL/TLS</span>'}</td>
-      <td>${s.local_tls ? '<span class="badge badge-info">TLS</span>' : (s.local_starttls ? '<span class="badge badge-warn">STARTTLS</span>' : '<span class="badge badge-muted">Sem TLS</span>')}</td>
+      <td>${s.local_tls ? '<span class="badge badge-info">TLS</span>' : (s.local_starttls ? '<span class="badge badge-warn">STARTTLS</span>' : `<span class="badge badge-muted">${escapeHtml(t('dash.no_tls'))}</span>`)}</td>
       <td class="right">
-        <button class="btn btn-secondary btn-xs" onclick="editServerByIndex(${idx})">Editar</button>
-        <button class="btn btn-danger btn-xs" onclick="deleteServerByIndex(${idx})">Remover</button>
+        <button class="btn btn-secondary btn-xs" onclick="editServerByIndex(${idx})">${escapeHtml(t('cfg.btn_edit'))}</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteServerByIndex(${idx})">${escapeHtml(t('dash.btn_remove'))}</button>
       </td>
     </tr>
   `).join('');
 }
 
 document.getElementById('btn-add-server').addEventListener('click', () => {
-  document.getElementById('server-modal-title').textContent = 'Adicionar Servidor';
+  document.getElementById('server-modal-title').textContent = t('srv.add_title');
   document.getElementById('srv-orig-section').value = '';
   document.getElementById('srv-protocol').value = 'IMAP';
   document.getElementById('srv-local-port').value = '1993';
@@ -1008,7 +1161,7 @@ document.getElementById('btn-add-server').addEventListener('click', () => {
 window.editServerByIndex = (idx) => {
   const s = state.overview?.servers?.[idx];
   if (!s) return;
-  document.getElementById('server-modal-title').textContent = `Editar [${s.section}]`;
+  document.getElementById('server-modal-title').textContent = t('srv.edit_title', { section: s.section });
   document.getElementById('srv-orig-section').value = s.section;
   document.getElementById('srv-protocol').value = s.protocol;
   document.getElementById('srv-local-port').value = s.local_port;
@@ -1027,12 +1180,12 @@ document.getElementById('btn-check-srv-port').addEventListener('click', async ()
   const port = parseInt(document.getElementById('srv-local-port').value, 10);
   const msgEl = document.getElementById('srv-port-check-msg');
   if (!port || port < 1024 || port > 65535) {
-    msgEl.textContent = 'Informe uma porta entre 1024 e 65535.';
+    msgEl.textContent = t('srv.port_invalid');
     msgEl.style.color = '#f87171';
     msgEl.classList.remove('hidden');
     return;
   }
-  msgEl.textContent = 'Verificando porta no Docker e no host...';
+  msgEl.textContent = t('srv.port_checking');
   msgEl.style.color = '';
   msgEl.classList.remove('hidden');
   try {
@@ -1042,7 +1195,7 @@ document.getElementById('btn-check-srv-port').addEventListener('click', async ()
     });
     const st = (res.statuses || []).find(x => x.port === port);
     if (!st) {
-      msgEl.textContent = 'Porta verificada.';
+      msgEl.textContent = t('srv.port_checked');
       return;
     }
     msgEl.textContent = st.message;
@@ -1076,7 +1229,7 @@ document.getElementById('server-form').addEventListener('submit', async (e) => {
       }),
     });
     closeModal('server-modal');
-    toast(`Servidor [${res.section}] salvo!`, 'success');
+    toast(t('srv.saved', { section: res.section }), 'success');
     showReloadHint(res.reload);
     await loadOverview();
     await loadRawConfig();
@@ -1090,14 +1243,14 @@ window.deleteServerByIndex = async (idx) => {
   if (!s) return;
   const section = s.section;
   const ok = await confirmDialog({
-    title: 'Remover servidor',
-    message: `Remover a seção [${section}] do emailproxy.config?`,
-    confirmLabel: 'Remover',
+    title: t('srv.delete_title'),
+    message: t('srv.delete_msg', { section }),
+    confirmLabel: t('dash.btn_remove'),
   });
   if (!ok) return;
   try {
     const res = await api(`/api/servers/${encodeURIComponent(section)}`, { method: 'DELETE' });
-    toast(`Servidor [${section}] removido.`, 'success');
+    toast(t('srv.deleted', { section }), 'success');
     showReloadHint(res.reload);
     await loadOverview();
     await loadRawConfig();
@@ -1139,13 +1292,16 @@ function renderPortsModal(dp, checkedPortsOverride) {
 
   if (info.compose_available) {
     composeInfo.className = 'alert alert-info small';
-    composeInfo.innerHTML = `<span>Modo A ativo: arquivo Compose montado em <code>${escapeHtml(info.compose_path)}</code> (serviço <code>${escapeHtml(info.compose_service || 'email-oauth2-proxy')}</code>).</span>`;
+    composeInfo.innerHTML = `<span>${t('ports.compose_active', {
+      path: escapeHtml(info.compose_path),
+      service: escapeHtml(info.compose_service || 'email-oauth2-proxy'),
+    })}</span>`;
   } else {
     composeInfo.className = 'alert alert-warn small';
     const hint = info.compose_host_hint
-      ? ` Caminho detectado no host: <code>${escapeHtml(info.compose_host_hint)}</code>.`
+      ? t('ports.compose_host_hint', { hint: escapeHtml(info.compose_host_hint) })
       : '';
-    composeInfo.innerHTML = `<span>Modo A (sincronizar YAML) não montado em <code>/compose</code>.${hint} Você pode usar o <strong>Modo B (Abrir no Docker Agora)</strong> ou copiar o bloco YAML abaixo.</span>`;
+    composeInfo.innerHTML = `<span>${t('ports.compose_inactive', { hint })}</span>`;
   }
 
   document.getElementById('btn-ports-apply-compose-only').disabled = !info.compose_available;
@@ -1154,12 +1310,12 @@ function renderPortsModal(dp, checkedPortsOverride) {
 
   const statuses = info.statuses || [];
   if (statuses.length === 0) {
-    listEl.innerHTML = `<div class="empty-state">Nenhum servidor configurado em <code>emailproxy.config</code>.</div>`;
+    listEl.innerHTML = `<div class="empty-state">${t('ports.empty')}</div>`;
     updatePortsYAMLPreview();
     return;
   }
 
-  listEl.innerHTML = statuses.map((st, idx) => {
+  listEl.innerHTML = statuses.map((st) => {
     const isProtected = !!st.protected;
     const isChecked = isProtected
       ? true
@@ -1167,11 +1323,15 @@ function renderPortsModal(dp, checkedPortsOverride) {
 
     let statusCls = 'badge-muted';
     let statusTxt = st.status;
-    if (st.status === 'open_on_proxy') { statusCls = 'badge-success'; statusTxt = isProtected ? 'Protegida' : 'Aberta no Docker'; }
-    else if (st.status === 'available') { statusCls = 'badge-info'; statusTxt = 'Livre no Host'; }
-    else if (st.status === 'conflict_docker' || st.status === 'conflict_host' || st.status === 'conflict_config') {
+    if (st.status === 'open_on_proxy') {
+      statusCls = 'badge-success';
+      statusTxt = isProtected ? t('ports.status_protected') : t('ports.status_open');
+    } else if (st.status === 'available') {
+      statusCls = 'badge-info';
+      statusTxt = t('ports.status_available');
+    } else if (st.status === 'conflict_docker' || st.status === 'conflict_host' || st.status === 'conflict_config') {
       statusCls = 'badge-danger';
-      statusTxt = 'Ocupada / Conflito';
+      statusTxt = t('ports.status_conflict');
     }
 
     return `
@@ -1179,7 +1339,7 @@ function renderPortsModal(dp, checkedPortsOverride) {
         <label class="checkbox">
           <input type="checkbox" class="port-mgr-cb" data-port="${st.port}" data-section="${escapeHtml(st.section || '')}" data-host="${escapeHtml(st.server_address || '')}" ${isChecked ? 'checked' : ''} ${isProtected ? 'disabled' : ''} onchange="updatePortsYAMLPreview()" />
           <span class="port-tag">${escapeHtml(st.section || `PORT-${st.port}`)}</span>
-          <span class="badge ${statusCls}">${statusTxt}</span>
+          <span class="badge ${statusCls}">${escapeHtml(statusTxt)}</span>
         </label>
         <div class="muted small">${escapeHtml(st.message || '')}</div>
       </div>
@@ -1242,7 +1402,7 @@ async function checkAllDockerPorts(silent = false) {
     }
     renderPortsModal(res.docker_ports, selected.size ? selected : null);
     if (!silent) {
-      toast('Disponibilidade das portas verificada!', 'success');
+      toast(t('ports.checked_toast'), 'success');
     }
   } catch (err) {
     if (!silent) toast(err.message, 'error');
@@ -1254,15 +1414,13 @@ async function checkAllDockerPorts(silent = false) {
 async function applyDockerPorts(mode) {
   const specs = getSelectedPortSpecsFromModal();
   const modeLabel = mode === 'compose_and_docker'
-    ? 'atualizar o docker-compose.yml e recriar o container email-oauth2-proxy com as portas selecionadas'
-    : (mode === 'docker_only'
-      ? 'recriar o container email-oauth2-proxy no Docker com as portas selecionadas'
-      : 'atualizar apenas o arquivo docker-compose.yml');
+    ? t('ports.apply_msg_both')
+    : (mode === 'docker_only' ? t('ports.apply_msg_docker') : t('ports.apply_msg_compose'));
 
   const ok = await confirmDialog({
-    title: 'Aplicar portas',
-    message: `Deseja ${modeLabel}? Se alguma porta nova estiver ocupada, nenhuma alteração será aplicada.`,
-    confirmLabel: 'Aplicar',
+    title: t('ports.apply_title'),
+    message: t('ports.apply_confirm_msg', { action: modeLabel }),
+    confirmLabel: t('ports.apply_btn'),
     danger: false,
   });
   if (!ok) return;
@@ -1275,7 +1433,7 @@ async function applyDockerPorts(mode) {
       method: 'POST',
       body: JSON.stringify({ mode, specs }),
     });
-    toast(res.result?.message || 'Portas atualizadas!', 'success');
+    toast(res.result?.message || t('ports.updated_toast'), 'success');
     closeModal('ports-modal');
     setTimeout(loadOverview, 1200);
   } catch (err) {
@@ -1287,7 +1445,7 @@ async function applyDockerPorts(mode) {
 document.getElementById('btn-open-ports-modal').addEventListener('click', openPortsModal);
 document.getElementById('btn-ports-check-all').addEventListener('click', () => checkAllDockerPorts(false));
 document.getElementById('btn-copy-ports-yaml').addEventListener('click', () => {
-  navigator.clipboard.writeText(document.getElementById('ports-yaml-preview').value).then(() => toast('YAML de portas copiado!', 'success'));
+  navigator.clipboard.writeText(document.getElementById('ports-yaml-preview').value).then(() => toast(t('ports.yaml_copied'), 'success'));
 });
 document.getElementById('btn-ports-apply-compose-only').addEventListener('click', () => applyDockerPorts('compose_only'));
 document.getElementById('btn-ports-apply-docker').addEventListener('click', () => applyDockerPorts('docker_only'));
@@ -1307,7 +1465,7 @@ function renderConfigAccountsTable(accounts) {
   if (!tbody) return;
   const cfgAccounts = accounts.filter(a => !a.from_cache_only);
   if (cfgAccounts.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="muted" style="text-align:center;padding:20px;">Nenhuma conta configurada no emailproxy.config.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="muted" style="text-align:center;padding:20px;">${escapeHtml(t('cfg.accounts_empty'))}</td></tr>`;
     return;
   }
 
@@ -1333,8 +1491,8 @@ function renderConfigAccountsTable(accounts) {
         <td class="small muted" style="font-family:var(--mono);">${escapeHtml(a.redirect_uri || '—')}</td>
         <td class="right">
           <div class="row right">
-            <button class="btn btn-secondary btn-xs" onclick="editAccountByIndex(${origIdx})">Editar</button>
-            <button class="btn btn-danger btn-xs" onclick="deleteAccountByIndex(${origIdx}, false)">Remover</button>
+            <button class="btn btn-secondary btn-xs" onclick="editAccountByIndex(${origIdx})">${escapeHtml(t('cfg.btn_edit'))}</button>
+            <button class="btn btn-danger btn-xs" onclick="deleteAccountByIndex(${origIdx}, false)">${escapeHtml(t('dash.btn_remove'))}</button>
           </div>
         </td>
       </tr>
@@ -1354,17 +1512,17 @@ function updateAccountModalFlowUI() {
   document.getElementById('acc-client-id-hint').classList.toggle('hidden', !isServiceAcc);
 
   document.getElementById('acc-client-id-label').innerHTML = isServiceAcc
-    ? 'Tipo de chave (<code>client_id</code>: <code>file</code> ou <code>key</code>)'
-    : 'Client ID (<code>client_id</code>)';
+    ? t('acc.client_id_sa')
+    : t('acc.client_id');
 
   document.getElementById('acc-secret-label').innerHTML = isServiceAcc
-    ? 'Caminho do JSON ou conteúdo da chave JSON (<code>client_secret</code>)'
-    : 'Client Secret (<code>client_secret</code> — opcional)';
+    ? t('acc.secret_label_sa')
+    : t('acc.secret_label');
 
   document.getElementById('acc-client-secret').rows = isServiceAcc ? 6 : 2;
   document.getElementById('acc-client-secret').placeholder = isServiceAcc
-    ? 'Ex.: /config/service-account.json (se client_id=file) ou cole o JSON inteiro (se client_id=key)'
-    : 'Deixe vazio para não usar secret (ou marque manter existente abaixo)';
+    ? t('acc.secret_ph_sa')
+    : t('acc.secret_ph');
 }
 
 document.getElementById('acc-flow').addEventListener('change', updateAccountModalFlowUI);
@@ -1376,7 +1534,7 @@ document.getElementById('btn-acc-use-panel').addEventListener('click', () => {
 });
 
 document.getElementById('btn-add-account').addEventListener('click', () => {
-  document.getElementById('account-modal-title').textContent = 'Nova Conta / Regra';
+  document.getElementById('account-modal-title').textContent = t('acc.new_title');
   document.getElementById('acc-orig-name').value = '';
   document.getElementById('acc-name').value = '';
   document.getElementById('acc-flow').value = '';
@@ -1401,7 +1559,7 @@ document.getElementById('btn-add-account').addEventListener('click', () => {
 window.editAccountByIndex = (idx) => {
   const a = state.overview?.accounts?.[idx];
   if (!a) return;
-  document.getElementById('account-modal-title').textContent = `Editar [${a.account}]`;
+  document.getElementById('account-modal-title').textContent = t('acc.edit_item_title', { account: a.account });
   document.getElementById('acc-orig-name').value = a.account;
   document.getElementById('acc-name').value = a.account;
   document.getElementById('acc-flow').value = a.oauth2_flow || '';
@@ -1447,7 +1605,7 @@ document.getElementById('account-form').addEventListener('submit', async (e) => 
       }),
     });
     closeModal('account-modal');
-    toast(`Conta [${res.account}] salva!`, 'success');
+    toast(t('acc.saved', { account: res.account }), 'success');
     showReloadHint(res.reload);
     await loadOverview();
     await loadRawConfig();
@@ -1476,7 +1634,7 @@ document.getElementById('globals-form').addEventListener('submit', async (e) => 
         use_login_password_as_client_credentials_secret: document.getElementById('glob-login-pass-secret').checked,
       }),
     });
-    toast('Opções globais salvas!', 'success');
+    toast(t('cfg.globals_saved'), 'success');
     showReloadHint(res.reload);
     await loadOverview();
     await loadRawConfig();
@@ -1502,7 +1660,7 @@ document.getElementById('btn-save-raw').addEventListener('click', async () => {
       method: 'PUT',
       body: JSON.stringify({ content: document.getElementById('raw-config-editor').value }),
     });
-    toast('emailproxy.config salvo (backup criado em .bak)!', 'success');
+    toast(t('cfg.raw_saved'), 'success');
     showReloadHint(res.reload);
     await loadOverview();
   } catch (err) {
@@ -1518,9 +1676,9 @@ function renderCerts(c) {
 
   if (!c.has_ca && !c.has_server_cert) {
     badge.className = 'badge badge-warn';
-    badge.textContent = 'Não gerado';
+    badge.textContent = t('certs.not_generated');
     dlBtn.classList.add('hidden');
-    body.innerHTML = `<div class="empty-state">Nenhum certificado encontrado em <code>/config</code>. Use o formulário ao lado para gerar sua CA local + certificado TLS.</div>`;
+    body.innerHTML = `<div class="empty-state">${t('certs.empty_state')}</div>`;
     if (!document.getElementById('cert-hosts').value && location.hostname !== 'localhost') {
       document.getElementById('cert-hosts').value = location.hostname;
     }
@@ -1528,7 +1686,7 @@ function renderCerts(c) {
   }
 
   badge.className = 'badge badge-success';
-  badge.textContent = 'Presente';
+  badge.textContent = t('certs.present');
   dlBtn.classList.toggle('hidden', !c.has_ca);
 
   const ips = (c.server_ips || []).map(ip => `<code>${escapeHtml(ip)}</code>`).join(' ');
@@ -1536,15 +1694,15 @@ function renderCerts(c) {
 
   body.innerHTML = `
     <div class="subcard">
-      <div class="subcard-title">CA Raiz Local (<code>ca-cert.pem</code>)</div>
+      <div class="subcard-title">${t('certs.local_ca')}</div>
       <div><strong>Subject:</strong> ${escapeHtml(c.ca_subject || '—')}</div>
-      <div><strong>Válida até:</strong> ${c.ca_not_after ? new Date(c.ca_not_after).toLocaleDateString('pt-BR') : '—'}</div>
+      <div><strong>${escapeHtml(t('certs.valid_until'))}</strong> ${c.ca_not_after ? new Date(c.ca_not_after).toLocaleDateString(getDateLocale()) : '—'}</div>
       <div class="muted" style="word-break:break-all;"><strong>SHA-256:</strong> ${escapeHtml(c.ca_fingerprint || '—')}</div>
     </div>
     <div class="subcard">
-      <div class="subcard-title">Certificado do Proxy (<code>proxy-cert.pem</code>)</div>
+      <div class="subcard-title">${t('certs.proxy_cert')}</div>
       <div><strong>CN:</strong> ${escapeHtml(c.server_subject || '—')}</div>
-      <div><strong>Válido até:</strong> ${c.server_not_after ? new Date(c.server_not_after).toLocaleDateString('pt-BR') : '—'}</div>
+      <div><strong>${escapeHtml(t('certs.valid_until'))}</strong> ${c.server_not_after ? new Date(c.server_not_after).toLocaleDateString(getDateLocale()) : '—'}</div>
       <div><strong>SAN IPs:</strong> ${ips || '—'}</div>
       <div><strong>SAN DNS:</strong> ${dns || '—'}</div>
     </div>
@@ -1569,7 +1727,7 @@ document.getElementById('cert-gen-form').addEventListener('submit', async (e) =>
         apply_to_all_servers: document.getElementById('cert-apply-all').checked,
       }),
     });
-    toast('Certificado TLS gerado com sucesso!', 'success');
+    toast(t('certs.gen_success'), 'success');
     if (res.reload) showReloadHint(res.reload);
     await loadOverview();
   } catch (err) {
@@ -1586,7 +1744,7 @@ async function toggleAllTLS(enable) {
       method: 'POST',
       body: JSON.stringify({ enable }),
     });
-    toast(enable ? 'TLS ativado em todos os servidores!' : 'TLS local desativado em todos os servidores.', 'success');
+    toast(enable ? t('certs.tls_enabled_all') : t('certs.tls_disabled_all'), 'success');
     showReloadHint(res.reload);
     await loadOverview();
   } catch (err) {
@@ -1602,14 +1760,16 @@ function connectLogStream() {
 
   const badge = document.getElementById('logs-sse-badge');
   badge.className = 'badge badge-info';
-  badge.textContent = 'Conectando...';
+  state.logStatusKey = 'logs.connecting';
+  badge.textContent = t(state.logStatusKey);
 
   const es = new EventSource('/api/logs/stream');
   state.logSource = es;
 
   es.onopen = () => {
     badge.className = 'badge badge-success';
-    badge.textContent = '● Ao vivo';
+    state.logStatusKey = 'logs.live';
+    badge.textContent = t(state.logStatusKey);
   };
 
   es.onmessage = (ev) => {
@@ -1624,7 +1784,8 @@ function connectLogStream() {
 
   es.onerror = () => {
     badge.className = 'badge badge-warn';
-    badge.textContent = 'Reconectando...';
+    state.logStatusKey = 'logs.reconnecting';
+    badge.textContent = t(state.logStatusKey);
   };
 }
 
@@ -1632,6 +1793,12 @@ function disconnectLogStream() {
   if (state.logSource) {
     state.logSource.close();
     state.logSource = null;
+  }
+  state.logStatusKey = 'logs.disconnected';
+  const badge = document.getElementById('logs-sse-badge');
+  if (badge) {
+    badge.className = 'badge badge-muted';
+    badge.textContent = t(state.logStatusKey);
   }
 }
 
@@ -1654,17 +1821,14 @@ function classifyLogPayload(text) {
 
 function cleanPythonBytesPayload(payload) {
   let s = payload.trim();
-  // Unwrap Python bytes literal b'...' or b"..."
   if ((s.startsWith("b'") && s.endsWith("'")) || (s.startsWith('b"') && s.endsWith('"'))) {
     const quote = s[1];
     s = s.slice(2, -1);
     if (quote === "'") s = s.replace(/\\'/g, "'");
     if (quote === '"') s = s.replace(/\\"/g, '"');
   } else {
-    // Handle partial/continuation lines ending with \r\n'
     s = s.replace(/\\r\\n['"]?$/, '');
   }
-  // Turn literal \r\n or \n escape sequences into clean single-line separators
   s = s.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\\r/g, '').replace(/\\t/g, '  ').replace(/\\\\/g, '\\');
   const parts = s.split('\n').map(p => p.trim()).filter(Boolean);
   return parts;
@@ -1676,7 +1840,6 @@ function formatLogLineHTML(raw) {
     return `<span class="${cls}">${escapeHtml(raw)}</span>`;
   }
 
-  // Parse leading timestamp: "2026-11-19 12:43:05,461: <rest>" or "2026-11-19 12:43:05: <rest>"
   let tsFull = '';
   let tsShort = '';
   let rest = raw;
@@ -1689,8 +1852,6 @@ function formatLogLineHTML(raw) {
 
   const tsSpan = tsShort ? `<span class="log-ts" title="${escapeHtml(tsFull)}">${escapeHtml(tsShort)}</span>` : '';
 
-  // Parse protocol proxy traffic line (with or without direction arrow):
-  // IMAP (172.18.0.22:59692-{172.18.0.21:2993}-imap.gmail.com:993; user@gmail.com) <-- b'...'
   const protoMatch = rest.match(/^(IMAP|SMTP|POP)\s+\(([^)]+)\)\s+(?:(-->|<--|<->)\s+)?(.*)$/);
   if (protoMatch) {
     const proto = protoMatch[1];
@@ -1698,7 +1859,6 @@ function formatLogLineHTML(raw) {
     const dirRaw = protoMatch[3] || '';
     const bodyRaw = protoMatch[4];
 
-    // Extract clean remote host + account from connection metadata
     const [routePart, accountPart] = connRaw.split(';').map(x => x.trim());
     const remoteHost = routePart.includes('}-') ? routePart.split('}-').pop() : routePart;
     const metaLabel = accountPart ? `${remoteHost} · ${accountPart}` : remoteHost;
@@ -1718,7 +1878,6 @@ function formatLogLineHTML(raw) {
     return `${tsSpan}<span class="log-proto ${protoCls}">${proto}</span><span class="log-meta" title="${escapeHtml(connRaw)}">${escapeHtml(metaLabel)}</span>${dirSpan}${renderedBody}`;
   }
 
-  // General proxy / system line (still clean any stray \r\n' if present)
   const parts = cleanPythonBytesPayload(rest);
   const cleanText = parts.length > 0 ? parts.join(' | ') : rest;
   const cls = classifyLogPayload(cleanText);
@@ -1760,20 +1919,20 @@ document.getElementById('logs-filter').addEventListener('input', rerenderLogs);
 document.getElementById('logs-raw').addEventListener('change', rerenderLogs);
 document.getElementById('btn-logs-toggle').addEventListener('click', (e) => {
   state.logsPaused = !state.logsPaused;
-  e.target.textContent = state.logsPaused ? 'Retomar' : 'Pausar';
+  e.target.textContent = t(state.logsPaused ? 'logs.resume' : 'logs.pause');
 });
 document.getElementById('btn-logs-clear').addEventListener('click', async () => {
   const ok = await confirmDialog({
-    title: 'Limpar logs',
-    message: 'Limpar todo o conteúdo de /config/emailproxy.log?',
-    confirmLabel: 'Limpar',
+    title: t('logs.clear_title'),
+    message: t('logs.clear_msg'),
+    confirmLabel: t('logs.clear'),
   });
   if (!ok) return;
   try {
     await api('/api/logs/clear', { method: 'POST' });
     state.logLines = [];
     document.getElementById('logs-output').innerHTML = '';
-    toast('Log limpo.', 'success');
+    toast(t('logs.cleared'), 'success');
   } catch (err) {
     toast(err.message, 'error');
   }
@@ -1787,7 +1946,7 @@ document.querySelectorAll('.nav-item').forEach(btn => {
 document.getElementById('btn-refresh').addEventListener('click', async () => {
   try {
     await loadOverview();
-    toast('Status atualizado.', 'success');
+    toast(t('common.status_updated'), 'success');
   } catch (err) {
     toast(err.message, 'error');
   }
@@ -1801,7 +1960,7 @@ document.getElementById('btn-toggle-debug').addEventListener('click', async () =
   try {
     const res = await api('/api/proxy/toggle-debug', { method: 'POST' });
     renderDebugButton(res.debug_mode, res.debug_known);
-    toast(res.message || 'Debug mode atualizado.', res.reloaded ? 'success' : 'info');
+    toast(res.message || t('common.debug_updated'), res.reloaded ? 'success' : 'info');
   } catch (err) {
     toast(err.message, 'error');
   } finally {
@@ -1819,6 +1978,7 @@ async function bootstrap() {
 }
 
 (async () => {
+  initLanguage();
   const ok = await checkAuth();
   if (ok) {
     await bootstrap();

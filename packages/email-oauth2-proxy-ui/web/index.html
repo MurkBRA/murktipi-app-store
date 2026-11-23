@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Email OAuth2 Proxy — Painel</title>
+  <title data-i18n="page.title">Email OAuth2 Proxy — Dashboard</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -13,20 +13,20 @@
       <div class="brand-row">
         <div>
           <h1>Email OAuth2 Proxy</h1>
-          <p class="muted">Painel de gerenciamento</p>
+          <p class="muted" data-i18n="login.subtitle">Management dashboard</p>
         </div>
       </div>
       <form id="login-form" class="stack">
         <label class="field">
-          <span>Usuário</span>
+          <span data-i18n="login.username">Username</span>
           <input type="text" id="login-user" value="" autocomplete="username" required />
         </label>
         <label class="field">
-          <span>Senha</span>
+          <span data-i18n="login.password">Password</span>
           <input type="password" id="login-pass" autocomplete="current-password" required />
         </label>
         <div id="login-error" class="alert alert-error hidden"></div>
-        <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+        <button type="submit" class="btn btn-primary btn-block" data-i18n="login.submit">Sign in</button>
       </form>
     </div>
   </div>
@@ -36,31 +36,39 @@
     <aside class="sidebar">
       <div class="sidebar-header">
         <div>
-          <div class="brand-title">Email OAuth2</div>
-          <div class="brand-sub">Proxy WebGUI</div>
+          <div class="brand-title" data-i18n="brand.title">Email OAuth2</div>
+          <div class="brand-sub" data-i18n="brand.subtitle">Proxy WebGUI</div>
         </div>
       </div>
 
       <nav class="nav">
         <button class="nav-item active" data-tab="dashboard">
-          <span>Dashboard</span>
+          <span data-i18n="nav.dashboard">Dashboard</span>
           <span id="nav-pending-badge" class="badge badge-warn hidden" style="margin-left:auto;">0</span>
         </button>
-        <button class="nav-item" data-tab="oauth">Autenticar OAuth</button>
-        <button class="nav-item" data-tab="config">Config &amp; Templates</button>
-        <button class="nav-item" data-tab="certs">Certificados TLS</button>
-        <button class="nav-item" data-tab="logs">Logs ao Vivo</button>
+        <button class="nav-item" data-tab="oauth" data-i18n="nav.oauth">Authenticate OAuth</button>
+        <button class="nav-item" data-tab="config" data-i18n="nav.config">Config &amp; Templates</button>
+        <button class="nav-item" data-tab="certs" data-i18n="nav.certs">TLS Certificates</button>
+        <button class="nav-item" data-tab="logs" data-i18n="nav.logs">Live Logs</button>
       </nav>
 
       <div class="sidebar-footer">
+        <div class="lang-picker">
+          <label for="lang-select" class="lang-label" data-i18n="sidebar.lang_label">Language</label>
+          <select id="lang-select" class="lang-select" aria-label="Language">
+            <option value="auto" data-i18n="sidebar.lang_auto">Auto (Browser)</option>
+            <option value="en" data-i18n="sidebar.lang_en">English</option>
+            <option value="pt" data-i18n="sidebar.lang_pt">Português</option>
+          </select>
+        </div>
         <div class="meta-pill" id="sidebar-proxy-host">Proxy: —</div>
-        <button id="btn-toggle-debug" class="btn btn-secondary btn-sm btn-block" title="Alterna o Debug Mode em tempo real no emailproxy.py via SIGUSR1">
+        <button id="btn-toggle-debug" class="btn btn-secondary btn-sm btn-block" data-i18n-title="sidebar.debug_title" title="Toggles Debug Mode in real time on emailproxy.py via SIGUSR1">
           Debug: —
         </button>
-        <button id="btn-reload-proxy" class="btn btn-secondary btn-sm btn-block" title="Reinicia o container do Email OAuth2 Proxy (quando /var/run/docker.sock estiver montado)">
-          Reiniciar Proxy
+        <button id="btn-reload-proxy" class="btn btn-secondary btn-sm btn-block" data-i18n="sidebar.reload_proxy" data-i18n-title="sidebar.reload_title" title="Restarts the Email OAuth2 Proxy container (when /var/run/docker.sock is mounted)">
+          Restart Proxy
         </button>
-        <button id="btn-logout" class="btn btn-ghost btn-sm btn-block hidden">Sair</button>
+        <button id="btn-logout" class="btn btn-ghost btn-sm btn-block hidden" data-i18n="sidebar.logout">Sign out</button>
       </div>
     </aside>
 
@@ -69,19 +77,19 @@
       <header class="topbar">
         <div>
           <h2 id="page-title">Dashboard</h2>
-          <p id="page-subtitle" class="muted">Visão geral das portas, contas e tokens OAuth 2.0</p>
+          <p id="page-subtitle" class="muted">Overview of ports, accounts, and OAuth 2.0 tokens</p>
         </div>
         <div class="topbar-actions">
-          <button id="btn-refresh" class="btn btn-secondary btn-sm">Atualizar</button>
-          <button class="btn btn-primary btn-sm" onclick="switchTab('oauth')">Autenticar Conta</button>
+          <button id="btn-refresh" class="btn btn-secondary btn-sm" data-i18n="topbar.refresh">Refresh</button>
+          <button class="btn btn-primary btn-sm" onclick="switchTab('oauth')" data-i18n="topbar.auth_account">Authenticate Account</button>
         </div>
       </header>
 
       <div id="reload-banner" class="alert alert-warn hidden">
-        <span id="reload-banner-text">Alteração salva! Reinicie o container do Email OAuth2 Proxy no Runtipi para aplicar.</span>
+        <span id="reload-banner-text" data-i18n="banner.default_reload">Change saved! Restart the Email OAuth2 Proxy container in Runtipi to apply.</span>
         <div class="row">
-          <button id="btn-banner-restart" class="btn btn-primary btn-xs hidden" onclick="restartProxyNow()">Reiniciar Agora</button>
-          <button class="btn btn-ghost btn-xs" onclick="hideReloadBanner()">Fechar</button>
+          <button id="btn-banner-restart" class="btn btn-primary btn-xs hidden" onclick="restartProxyNow()" data-i18n="banner.restart_now">Restart Now</button>
+          <button class="btn btn-ghost btn-xs" onclick="hideReloadBanner()" data-i18n="banner.close">Close</button>
         </div>
       </div>
 
@@ -91,8 +99,8 @@
         <div id="pending-auth-card" class="card card-warn hidden">
           <div class="card-header">
             <div>
-              <h3>Pedidos Pendentes de Autorização (Clientes Externos)</h3>
-              <p class="muted small" style="margin:2px 0 0;">Um cliente conectado ao proxy (ex.: MailCraft, Thunderbird ou impressora) solicitou login OAuth 2.0.</p>
+              <h3 data-i18n="dash.pending_title">Pending Authorization Requests (External Clients)</h3>
+              <p class="muted small" style="margin:2px 0 0;" data-i18n="dash.pending_sub">A client connected to the proxy (e.g. MailCraft, Thunderbird, or printer) requested OAuth 2.0 login.</p>
             </div>
             <span id="pending-auth-count" class="badge badge-warn">0</span>
           </div>
@@ -101,58 +109,58 @@
 
         <div class="kpi-grid">
           <div class="kpi-card">
-            <div class="kpi-label">Portas Online</div>
+            <div class="kpi-label" data-i18n="dash.kpi_ports">Online Ports</div>
             <div class="kpi-value" id="kpi-ports">—</div>
-            <div class="kpi-sub" id="kpi-ports-sub">Testando portas do proxy</div>
+            <div class="kpi-sub" id="kpi-ports-sub" data-i18n="dash.kpi_ports_testing">Testing proxy ports</div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-label">Contas Autenticadas</div>
+            <div class="kpi-label" data-i18n="dash.kpi_accounts">Authenticated Accounts</div>
             <div class="kpi-value" id="kpi-accounts">—</div>
-            <div class="kpi-sub" id="kpi-accounts-sub">Tokens em cache</div>
+            <div class="kpi-sub" id="kpi-accounts-sub" data-i18n="dash.kpi_accounts_sub">Cached tokens</div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-label">TLS Local</div>
+            <div class="kpi-label" data-i18n="dash.kpi_tls">Local TLS</div>
             <div class="kpi-value" id="kpi-tls">—</div>
-            <div class="kpi-sub" id="kpi-tls-sub">Certificado local</div>
+            <div class="kpi-sub" id="kpi-tls-sub">Local certificate</div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-label">Modo Catch-All</div>
+            <div class="kpi-label" data-i18n="dash.kpi_catchall">Catch-All Mode</div>
             <div class="kpi-value" id="kpi-catchall">—</div>
-            <div class="kpi-sub" id="kpi-catchall-sub">Múltiplas contas por domínio</div>
+            <div class="kpi-sub" id="kpi-catchall-sub" data-i18n="dash.kpi_catchall_sub_on">Allows multiple accounts per domain</div>
           </div>
         </div>
 
         <div class="card">
           <div class="card-header">
             <div>
-              <h3>Status das Portas IMAP / SMTP / POP</h3>
+              <h3 data-i18n="dash.ports_title">IMAP / SMTP / POP Port Status</h3>
               <span class="muted small" id="proxy-host-label"></span>
             </div>
             <div class="row">
               <span id="docker-ports-pending-badge" class="badge badge-warn hidden"></span>
-              <button type="button" id="btn-open-ports-modal" class="btn btn-secondary btn-xs">Gerenciar Portas Docker</button>
+              <button type="button" id="btn-open-ports-modal" class="btn btn-secondary btn-xs" data-i18n="dash.manage_docker_ports">Manage Docker Ports</button>
             </div>
           </div>
           <div id="pid-shared-warn" class="alert alert-warn small hidden">
-            <span>O painel ainda está com <code>pid: "service:email-oauth2-proxy"</code> no compose. Remova essa linha para permitir abrir portas via Docker com segurança.</span>
+            <span data-i18n-html="dash.pid_shared_warn">The panel is still running with <code>pid: "service:email-oauth2-proxy"</code> in compose. Remove that line to allow opening ports via Docker safely.</span>
           </div>
           <div id="ports-grid" class="ports-grid"></div>
         </div>
 
         <div class="card">
           <div class="card-header">
-            <h3>Contas &amp; Tokens OAuth 2.0</h3>
-            <button class="btn btn-secondary btn-xs" onclick="switchTab('config')">Adicionar</button>
+            <h3 data-i18n="dash.accounts_title">OAuth 2.0 Accounts &amp; Tokens</h3>
+            <button class="btn btn-secondary btn-xs" onclick="switchTab('config')" data-i18n="dash.add">Add</button>
           </div>
           <div class="table-wrap">
             <table class="table">
               <thead>
                 <tr>
-                  <th>Conta / Regra</th>
-                  <th>Status</th>
-                  <th>Refresh Token</th>
-                  <th>Expira / Última Atividade</th>
-                  <th class="right">Ações</th>
+                  <th data-i18n="dash.col_account">Account / Rule</th>
+                  <th data-i18n="dash.col_status">Status</th>
+                  <th data-i18n="dash.col_refresh">Refresh Token</th>
+                  <th data-i18n="dash.col_expiry">Expires / Last Activity</th>
+                  <th class="right" data-i18n="dash.col_actions">Actions</th>
                 </tr>
               </thead>
               <tbody id="accounts-tbody"></tbody>
@@ -166,42 +174,42 @@
         <div class="wizard-grid">
           <div class="card">
             <div class="card-header">
-              <h3>1. Iniciar Login OAuth 2.0</h3>
+              <h3 data-i18n="oauth.step1_title">1. Start OAuth 2.0 Login</h3>
             </div>
-            <p class="muted small">
-              O painel conecta via IMAP no proxy por baixo dos panos, captura automaticamente o link do provedor nos logs e envia o retorno em HTTP puro — sem precisar de SSH nem editar URL manualmente.
+            <p class="muted small" data-i18n="oauth.step1_desc">
+              The panel connects via IMAP to the proxy under the hood, automatically captures the provider URL from logs, and delivers the callback over plain HTTP — no SSH or manual URL editing needed.
             </p>
             <form id="oauth-start-form" class="stack">
               <label class="field">
-                <span>Endereço de E-mail</span>
-                <input type="email" id="oauth-email" placeholder="seunome@outlook.com" required />
+                <span data-i18n="oauth.email_label">Email Address</span>
+                <input type="email" id="oauth-email" data-i18n-placeholder="oauth.email_placeholder" placeholder="yourname@outlook.com" required />
               </label>
               <label class="field">
-                <span>Senha Local (usada nos seus apps de e-mail)</span>
-                <input type="password" id="oauth-password" placeholder="Crie ou informe sua senha local" required />
-                <small class="muted">Não precisa ser sua senha real da Microsoft/Google — ela criptografa o token salvo no proxy.</small>
+                <span data-i18n="oauth.pass_label">Local Password (used in your email apps)</span>
+                <input type="password" id="oauth-password" data-i18n-placeholder="oauth.pass_placeholder" placeholder="Create or enter your local password" required />
+                <small class="muted" data-i18n="oauth.pass_hint">Does not need to be your real Microsoft/Google password — it encrypts the token stored on the proxy.</small>
               </label>
               <label class="field">
-                <span>Porta IMAP do Proxy</span>
+                <span data-i18n="oauth.port_label">Proxy IMAP Port</span>
                 <select id="oauth-port">
-                  <option value="">Automático (detectar pelo domínio do e-mail)</option>
+                  <option value="" data-i18n="oauth.port_auto">Automatic (detect from email domain)</option>
                 </select>
               </label>
               <div class="row">
-                <button type="submit" id="btn-oauth-start" class="btn btn-primary">Iniciar Autenticação</button>
-                <button type="button" id="btn-oauth-cancel" class="btn btn-danger hidden">Cancelar</button>
+                <button type="submit" id="btn-oauth-start" class="btn btn-primary" data-i18n="oauth.start_btn">Start Authentication</button>
+                <button type="button" id="btn-oauth-cancel" class="btn btn-danger hidden" data-i18n="oauth.cancel_btn">Cancel</button>
               </div>
             </form>
           </div>
 
           <div class="card">
             <div class="card-header">
-              <h3>2. Autorizar no Provedor &amp; Concluir</h3>
-              <span id="oauth-status-badge" class="badge badge-muted">Aguardando</span>
+              <h3 data-i18n="oauth.step2_title">2. Authorize with Provider &amp; Finish</h3>
+              <span id="oauth-status-badge" class="badge badge-muted" data-i18n="oauth.waiting">Waiting</span>
             </div>
 
-            <div id="oauth-idle" class="empty-state">
-              Preencha o e-mail e a senha local ao lado e clique em <strong>Iniciar Autenticação</strong>.
+            <div id="oauth-idle" class="empty-state" data-i18n-html="oauth.idle_hint">
+              Fill in the email and local password on the left and click <strong>Start Authentication</strong>.
             </div>
 
             <div id="oauth-active" class="stack hidden">
@@ -209,45 +217,45 @@
 
               <!-- Captured Authorization URL -->
               <div id="oauth-url-box" class="subcard hidden">
-                <div class="subcard-title">Passo A — Faça login no provedor</div>
-                <p id="oauth-url-help" class="muted small">
-                  Clique no botão abaixo para abrir o login em um popup.
+                <div class="subcard-title" data-i18n="oauth.step_a_title">Step A — Sign in to your provider</div>
+                <p id="oauth-url-help" class="muted small" data-i18n="oauth.step_a_help">
+                  Click the button below to open the login in a popup.
                 </p>
                 <div class="row">
-                  <button type="button" id="oauth-open-popup" class="btn btn-primary">
-                    Abrir Login no Provedor
+                  <button type="button" id="oauth-open-popup" class="btn btn-primary" data-i18n="oauth.open_popup">
+                    Open Provider Login
                   </button>
-                  <button type="button" id="btn-copy-auth-url" class="btn btn-secondary">Copiar URL</button>
+                  <button type="button" id="btn-copy-auth-url" class="btn btn-secondary" data-i18n="oauth.copy_url">Copy URL</button>
                 </div>
               </div>
 
               <!-- Device Code Box -->
               <div id="oauth-device-box" class="subcard hidden">
-                <div class="subcard-title">Código de Dispositivo (Device Flow)</div>
+                <div class="subcard-title" data-i18n="oauth.device_title">Device Code (Device Flow)</div>
                 <div class="device-code-row">
                   <code id="oauth-device-code" class="device-code"></code>
-                  <button type="button" id="btn-copy-device-code" class="btn btn-secondary btn-sm">Copiar Código</button>
+                  <button type="button" id="btn-copy-device-code" class="btn btn-secondary btn-sm" data-i18n="oauth.copy_code">Copy Code</button>
                 </div>
-                <p class="muted small">Após inserir o código no navegador, aguarde alguns segundos — o proxy conclui automaticamente.</p>
+                <p class="muted small" data-i18n="oauth.device_help">After entering the code in your browser, wait a few seconds — the proxy finishes automatically.</p>
               </div>
 
               <!-- Paste Redirect Callback Box -->
               <div id="oauth-callback-box" class="subcard hidden">
-                <div class="subcard-title" id="oauth-cb-title">Passo B — Cole a URL final do navegador</div>
-                <p id="oauth-cb-help" class="muted small">
-                  Copie a URL inteira da barra de endereço (ex.: <code>https://localhost/?code=...&amp;state=...</code>) e cole abaixo — o envio acontece automaticamente ao colar.
+                <div class="subcard-title" id="oauth-cb-title" data-i18n="oauth.step_b_title">Step B — Paste the final browser URL</div>
+                <p id="oauth-cb-help" class="muted small" data-i18n-html="oauth.step_b_help">
+                  Copy the entire address bar URL (e.g. <code>https://localhost/?code=...&amp;state=...</code>) and paste it below — it submits automatically on paste.
                 </p>
                 <form id="oauth-callback-form" class="stack">
-                  <input type="text" id="oauth-callback-input" placeholder="Cole aqui a URL com ?code=...&state=..." required />
-                  <button type="submit" id="btn-oauth-submit-cb" class="btn btn-success">Enviar Callback e Concluir</button>
+                  <input type="text" id="oauth-callback-input" data-i18n-placeholder="oauth.cb_placeholder" placeholder="Paste the URL with ?code=...&state=... here" required />
+                  <button type="submit" id="btn-oauth-submit-cb" class="btn btn-success" data-i18n="oauth.cb_submit">Send Callback &amp; Finish</button>
                 </form>
               </div>
 
               <!-- Success Summary -->
               <div id="oauth-success-box" class="subcard subcard-success hidden">
                 <div class="card-header" style="margin-bottom:4px;">
-                  <div class="subcard-title">Conta Pronta para Uso!</div>
-                  <button type="button" id="btn-copy-oauth-summary" class="btn btn-secondary btn-xs">Copiar Resumo</button>
+                  <div class="subcard-title" data-i18n="oauth.success_title">Account Ready to Use!</div>
+                  <button type="button" id="btn-copy-oauth-summary" class="btn btn-secondary btn-xs" data-i18n="oauth.copy_summary">Copy Summary</button>
                 </div>
                 <div id="oauth-client-hints" class="stack small"></div>
               </div>
@@ -261,25 +269,25 @@
         <!-- Quick Provider Setup -->
         <div class="card">
           <div class="card-header">
-            <h3>Configuração Rápida (Templates + Presets Consolidados)</h3>
+            <h3 data-i18n="cfg.quick_title">Quick Setup (Templates + Consolidated Presets)</h3>
             <span class="badge badge-info">Thunderbird / FairEmail / GNOME / Mailspring / Custom</span>
           </div>
-          <p class="muted small">
-            Adicione servidores IMAP/SMTP e credenciais OAuth 2.0 prontas em 1 clique — incluindo backups consolidados de clientes open-source (<strong>Mozilla Thunderbird</strong>, <strong>FairEmail</strong>, <strong>GNOME Online Accounts</strong> e <strong>Mailspring</strong>).
+          <p class="muted small" data-i18n-html="cfg.quick_desc">
+            Add IMAP/SMTP servers and ready-to-use OAuth 2.0 credentials in 1 click — including consolidated backups from open-source clients (<strong>Mozilla Thunderbird</strong>, <strong>FairEmail</strong>, <strong>GNOME Online Accounts</strong>, and <strong>Mailspring</strong>).
           </p>
 
           <form id="template-apply-form" class="template-form">
             <div class="form-grid-3">
               <label class="field">
-                <span>Provedor</span>
+                <span data-i18n="cfg.provider">Provider</span>
                 <select id="tpl-provider"></select>
               </label>
               <label class="field">
-                <span>Credenciais OAuth (Preset)</span>
+                <span data-i18n="cfg.preset">OAuth Credentials (Preset)</span>
                 <select id="tpl-preset"></select>
               </label>
               <label class="field">
-                <span>Domínio Catch-All ou E-mail</span>
+                <span data-i18n="cfg.account_target">Catch-All Domain or Email</span>
                 <input type="text" id="tpl-account" placeholder="@outlook.com" required />
               </label>
             </div>
@@ -288,18 +296,18 @@
 
             <div id="tpl-custom-creds" class="form-grid-3 hidden">
               <label class="field">
-                <span>Client ID</span>
-                <input type="text" id="tpl-client-id" placeholder="Seu Client ID" />
+                <span data-i18n="cfg.client_id">Client ID</span>
+                <input type="text" id="tpl-client-id" data-i18n-placeholder="cfg.client_id_ph" placeholder="Your Client ID" />
               </label>
               <label class="field">
-                <span>Client Secret (opcional se public client)</span>
-                <input type="text" id="tpl-client-secret" placeholder="Opcional" />
+                <span data-i18n="cfg.client_secret_opt">Client Secret (optional if public client)</span>
+                <input type="text" id="tpl-client-secret" data-i18n-placeholder="cfg.optional_ph" placeholder="Optional" />
               </label>
               <label class="field">
-                <span>Redirect URI</span>
+                <span data-i18n="cfg.redirect_uri">Redirect URI</span>
                 <div class="row" style="flex-wrap:nowrap;">
-                  <input type="text" id="tpl-redirect-uri" placeholder="URL de callback dinâmica" />
-                  <button type="button" id="btn-use-panel-callback" class="btn btn-secondary btn-xs" title="Usar o endereço atual deste painel (/oauth/callback)" style="white-space:nowrap;">Usar Painel</button>
+                  <input type="text" id="tpl-redirect-uri" data-i18n-placeholder="cfg.dynamic_cb_ph" placeholder="Dynamic callback URL" />
+                  <button type="button" id="btn-use-panel-callback" class="btn btn-secondary btn-xs" data-i18n="cfg.use_panel" data-i18n-title="cfg.use_panel_title" title="Use the current address of this panel (/oauth/callback)" style="white-space:nowrap;">Use Panel</button>
                 </div>
               </label>
             </div>
@@ -307,30 +315,30 @@
             <div class="checkbox-row">
               <label class="checkbox">
                 <input type="checkbox" id="tpl-create-servers" checked />
-                <span>Criar/atualizar servidores IMAP e SMTP automaticamente</span>
+                <span data-i18n="cfg.tpl_create_servers">Create/update IMAP and SMTP servers automatically</span>
               </label>
               <label class="checkbox">
                 <input type="checkbox" id="tpl-enable-tls" checked />
-                <span>Ativar TLS local (se certificado já existir)</span>
+                <span data-i18n="cfg.tpl_enable_tls">Enable local TLS (if certificate already exists)</span>
               </label>
               <label class="checkbox">
                 <input type="checkbox" id="tpl-catch-all" checked />
-                <span>Habilitar catch-all (<code>allow_catch_all_accounts = True</code>)</span>
+                <span data-i18n-html="cfg.tpl_catch_all">Enable catch-all (<code>allow_catch_all_accounts = True</code>)</span>
               </label>
             </div>
 
             <label class="field" id="tpl-port-mode-wrap">
-              <span>Ação nas Portas Docker / Compose</span>
+              <span data-i18n="cfg.port_mode_label">Docker / Compose Ports Action</span>
               <select id="tpl-port-mode">
-                <option value="none">Apenas salvar emailproxy.config (não alterar portas Docker)</option>
-                <option value="docker_only">Verificar disponibilidade e abrir no Docker agora (Modo B)</option>
-                <option value="compose_and_docker">Verificar, atualizar docker-compose.yml e abrir no Docker (Modo A + B)</option>
-                <option value="compose_only">Atualizar apenas o arquivo docker-compose.yml (Modo A)</option>
+                <option value="none" data-i18n="cfg.port_mode_none">Save emailproxy.config only (do not change Docker ports)</option>
+                <option value="docker_only" data-i18n="cfg.port_mode_docker">Check availability and open in Docker now (Mode B)</option>
+                <option value="compose_and_docker" data-i18n="cfg.port_mode_both">Check, update docker-compose.yml and open in Docker (Mode A + B)</option>
+                <option value="compose_only" data-i18n="cfg.port_mode_compose">Update docker-compose.yml file only (Mode A)</option>
               </select>
             </label>
 
             <div class="row">
-              <button type="submit" class="btn btn-primary">Aplicar Template no emailproxy.config</button>
+              <button type="submit" class="btn btn-primary" data-i18n="cfg.apply_template">Apply Template to emailproxy.config</button>
             </div>
           </form>
         </div>
@@ -338,21 +346,21 @@
         <!-- Configured Servers -->
         <div class="card">
           <div class="card-header">
-            <h3>Servidores Locais (IMAP / SMTP / POP)</h3>
+            <h3 data-i18n="cfg.servers_title">Local Servers (IMAP / SMTP / POP)</h3>
             <div class="row">
-              <button type="button" class="btn btn-secondary btn-xs" onclick="openPortsModal()">Gerenciar Portas Docker</button>
-              <button class="btn btn-secondary btn-xs" id="btn-add-server">Novo Servidor</button>
+              <button type="button" class="btn btn-secondary btn-xs" onclick="openPortsModal()" data-i18n="dash.manage_docker_ports">Manage Docker Ports</button>
+              <button class="btn btn-secondary btn-xs" id="btn-add-server" data-i18n="cfg.new_server">New Server</button>
             </div>
           </div>
           <div class="table-wrap">
             <table class="table">
               <thead>
                 <tr>
-                  <th>Seção</th>
-                  <th>Escuta Local</th>
-                  <th>Destino Remoto</th>
-                  <th>Segurança Local</th>
-                  <th class="right">Ações</th>
+                  <th data-i18n="cfg.col_section">Section</th>
+                  <th data-i18n="cfg.col_listen">Local Listen</th>
+                  <th data-i18n="cfg.col_remote">Remote Target</th>
+                  <th data-i18n="cfg.col_sec">Local Security</th>
+                  <th class="right" data-i18n="dash.col_actions">Actions</th>
                 </tr>
               </thead>
               <tbody id="servers-tbody"></tbody>
@@ -363,18 +371,18 @@
         <!-- Configured Accounts & Advanced Flows -->
         <div class="card">
           <div class="card-header">
-            <h3>Contas &amp; Regras (<code>emailproxy.config</code>)</h3>
-            <button class="btn btn-secondary btn-xs" id="btn-add-account">Nova Conta</button>
+            <h3 data-i18n-html="cfg.accounts_title">Accounts &amp; Rules (<code>emailproxy.config</code>)</h3>
+            <button class="btn btn-secondary btn-xs" id="btn-add-account" data-i18n="cfg.new_account">New Account</button>
           </div>
           <div class="table-wrap">
             <table class="table">
               <thead>
                 <tr>
-                  <th>Conta / Regra</th>
-                  <th>Fluxo OAuth</th>
-                  <th>Credenciais</th>
+                  <th data-i18n="dash.col_account">Account / Rule</th>
+                  <th data-i18n="cfg.col_flow">OAuth Flow</th>
+                  <th data-i18n="cfg.col_creds">Credentials</th>
                   <th>Redirect URI</th>
-                  <th class="right">Ações</th>
+                  <th class="right" data-i18n="dash.col_actions">Actions</th>
                 </tr>
               </thead>
               <tbody id="config-accounts-tbody"></tbody>
@@ -385,27 +393,27 @@
         <!-- Global Options -->
         <div class="card">
           <div class="card-header">
-            <h3>Opções Globais (<code>[emailproxy]</code>)</h3>
+            <h3 data-i18n-html="cfg.globals_title">Global Options (<code>[emailproxy]</code>)</h3>
           </div>
           <form id="globals-form" class="stack">
             <label class="checkbox">
               <input type="checkbox" id="glob-catchall" />
-              <span><strong>allow_catch_all_accounts</strong> — Permite regras por domínio como <code>@gmail.com</code> e <code>@outlook.com</code></span>
+              <span data-i18n-html="cfg.glob_catchall"><strong>allow_catch_all_accounts</strong> — Allows domain rules such as <code>@gmail.com</code> and <code>@outlook.com</code></span>
             </label>
             <label class="checkbox">
               <input type="checkbox" id="glob-delete-on-err" />
-              <span><strong>delete_account_token_on_password_error</strong> — Apaga token se cliente errar senha (recomendado <em>desmarcado</em> em servidor)</span>
+              <span data-i18n-html="cfg.glob_delete_err"><strong>delete_account_token_on_password_error</strong> — Deletes token if client enters wrong password (recommended <em>unchecked</em> on server)</span>
             </label>
             <label class="checkbox">
               <input type="checkbox" id="glob-encrypt-secret" />
-              <span><strong>encrypt_client_secret_on_first_use</strong> — Criptografa client_secret no primeiro uso</span>
+              <span data-i18n-html="cfg.glob_encrypt"><strong>encrypt_client_secret_on_first_use</strong> — Encrypts client_secret on first use</span>
             </label>
             <label class="checkbox">
               <input type="checkbox" id="glob-login-pass-secret" />
-              <span><strong>use_login_password_as_client_credentials_secret</strong> — Usa senha IMAP como secret em O365 CCG</span>
+              <span data-i18n-html="cfg.glob_login_secret"><strong>use_login_password_as_client_credentials_secret</strong> — Uses IMAP password as secret in O365 CCG</span>
             </label>
             <div>
-              <button type="submit" class="btn btn-primary btn-sm">Salvar Opções Globais</button>
+              <button type="submit" class="btn btn-primary btn-sm" data-i18n="cfg.save_globals">Save Global Options</button>
             </div>
           </form>
         </div>
@@ -413,13 +421,13 @@
         <!-- Raw Config Editor -->
         <div class="card">
           <div class="card-header">
-            <h3>Editor Completo (<code>/config/emailproxy.config</code>)</h3>
+            <h3 data-i18n-html="cfg.raw_title">Full Editor (<code>/config/emailproxy.config</code>)</h3>
             <div class="row">
-              <button class="btn btn-secondary btn-xs" id="btn-load-raw">Recarregar do Disco</button>
-              <button class="btn btn-primary btn-xs" id="btn-save-raw">Salvar Arquivo Raw</button>
+              <button class="btn btn-secondary btn-xs" id="btn-load-raw" data-i18n="cfg.raw_reload">Reload from Disk</button>
+              <button class="btn btn-primary btn-xs" id="btn-save-raw" data-i18n="cfg.raw_save">Save Raw File</button>
             </div>
           </div>
-          <p class="muted small">Um backup automático (<code>emailproxy.config.bak</code>) é salvo antes de cada gravação.</p>
+          <p class="muted small" data-i18n-html="cfg.raw_desc">An automatic backup (<code>emailproxy.config.bak</code>) is saved before each write.</p>
           <textarea id="raw-config-editor" class="code-editor" spellcheck="false" rows="18"></textarea>
         </div>
       </section>
@@ -429,54 +437,54 @@
         <div class="wizard-grid">
           <div class="card">
             <div class="card-header">
-              <h3>Status dos Certificados TLS</h3>
+              <h3 data-i18n="certs.status_title">TLS Certificate Status</h3>
               <span id="cert-badge" class="badge badge-muted">—</span>
             </div>
             <div id="cert-status-body" class="stack small"></div>
             <div class="row" style="margin-top: 16px;">
-              <a id="btn-download-ca" href="/api/certs/ca.crt" class="btn btn-primary">Baixar ca-cert.crt</a>
-              <button id="btn-enable-tls-all" class="btn btn-secondary btn-sm">Ativar TLS em Todos os Servidores</button>
-              <button id="btn-disable-tls-all" class="btn btn-ghost btn-sm">Desativar TLS Local</button>
+              <a id="btn-download-ca" href="/api/certs/ca.crt" class="btn btn-primary" data-i18n="certs.download_ca">Download ca-cert.crt</a>
+              <button id="btn-enable-tls-all" class="btn btn-secondary btn-sm" data-i18n="certs.enable_all">Enable TLS on All Servers</button>
+              <button id="btn-disable-tls-all" class="btn btn-ghost btn-sm" data-i18n="certs.disable_all">Disable Local TLS</button>
             </div>
             <details class="guide-box">
-              <summary>Como instalar o ca-cert.crt no Windows (MailCraft / Outlook / Thunderbird)</summary>
+              <summary data-i18n="certs.guide_summary">How to install ca-cert.crt on Windows (MailCraft / Outlook / Thunderbird)</summary>
               <ol>
-                <li>Clique em <strong>Baixar ca-cert.crt</strong> acima.</li>
-                <li>Clique duas vezes no arquivo e escolha <strong>Instalar Certificado</strong>.</li>
-                <li>Selecione <strong>Computador Local</strong> e avance.</li>
-                <li>Escolha <strong>Colocar todos os certificados no repositório a seguir → Procurar → Autoridades de Certificação Raiz Confiáveis</strong>.</li>
-                <li>Conclua e reinicie o cliente de e-mail (ex.: MailCraft).</li>
+                <li data-i18n-html="certs.guide_step1">Click <strong>Download ca-cert.crt</strong> above.</li>
+                <li data-i18n-html="certs.guide_step2">Double-click the file and choose <strong>Install Certificate</strong>.</li>
+                <li data-i18n-html="certs.guide_step3">Select <strong>Local Machine</strong> and click Next.</li>
+                <li data-i18n-html="certs.guide_step4">Choose <strong>Place all certificates in the following store → Browse → Trusted Root Certification Authorities</strong>.</li>
+                <li data-i18n-html="certs.guide_step5">Finish and restart your email client (e.g. MailCraft).</li>
               </ol>
             </details>
           </div>
 
           <div class="card">
             <div class="card-header">
-              <h3>Gerar / Renovar Certificado Local</h3>
+              <h3 data-i18n="certs.gen_title">Generate / Renew Local Certificate</h3>
             </div>
-            <p class="muted small">
-              Gera uma CA local X.509 v3 + certificado do servidor com <strong>SAN (Subject Alternative Name)</strong> compatível com <code>rustls</code> / MailCraft e clientes modernos.
+            <p class="muted small" data-i18n-html="certs.gen_desc">
+              Generates a local X.509 v3 CA + server certificate with <strong>SAN (Subject Alternative Name)</strong> compatible with <code>rustls</code> / MailCraft and modern clients.
             </p>
             <form id="cert-gen-form" class="stack">
               <label class="field">
-                <span>IPs e/ou Hostnames do Servidor (separados por vírgula)</span>
-                <input type="text" id="cert-hosts" placeholder="IP ou hostname atual do servidor" required />
-                <small class="muted"><code>127.0.0.1</code>, <code>localhost</code> e <code>email-oauth2-proxy</code> são incluídos automaticamente.</small>
+                <span data-i18n="certs.hosts_label">Server IPs and/or Hostnames (comma-separated)</span>
+                <input type="text" id="cert-hosts" data-i18n-placeholder="certs.hosts_ph" placeholder="Current server IP or hostname" required />
+                <small class="muted" data-i18n-html="certs.hosts_hint"><code>127.0.0.1</code>, <code>localhost</code>, and <code>email-oauth2-proxy</code> are included automatically.</small>
               </label>
               <label class="field">
-                <span>Validade (dias)</span>
+                <span data-i18n="certs.days_label">Validity (days)</span>
                 <input type="number" id="cert-days" value="3650" min="30" max="36500" />
               </label>
               <label class="checkbox">
                 <input type="checkbox" id="cert-reuse-ca" checked />
-                <span>Reutilizar CA existente (assim você não precisa reinstalar o <code>ca-cert.crt</code> nos PCs se apenas adicionar um novo IP)</span>
+                <span data-i18n-html="certs.reuse_ca">Reuse existing CA (so you do not need to reinstall <code>ca-cert.crt</code> on PCs if only adding a new IP)</span>
               </label>
               <label class="checkbox">
                 <input type="checkbox" id="cert-apply-all" checked />
-                <span>Aplicar automaticamente em todos os servidores do <code>emailproxy.config</code></span>
+                <span data-i18n-html="certs.apply_all">Apply automatically to all servers in <code>emailproxy.config</code></span>
               </label>
               <div>
-                <button type="submit" class="btn btn-primary">Gerar Certificado TLS</button>
+                <button type="submit" class="btn btn-primary" data-i18n="certs.gen_btn">Generate TLS Certificate</button>
               </div>
             </form>
           </div>
@@ -488,22 +496,22 @@
         <div class="card logs-card">
           <div class="card-header">
             <div class="row">
-              <h3>Logs em Tempo Real (<code>emailproxy.log</code>)</h3>
-              <span id="logs-sse-badge" class="badge badge-muted">Desconectado</span>
+              <h3 data-i18n-html="logs.title">Real-Time Logs (<code>emailproxy.log</code>)</h3>
+              <span id="logs-sse-badge" class="badge badge-muted" data-i18n="logs.disconnected">Disconnected</span>
             </div>
             <div class="row">
-              <input type="text" id="logs-filter" class="input-sm" placeholder="Filtrar logs..." />
+              <input type="text" id="logs-filter" class="input-sm" data-i18n-placeholder="logs.filter_ph" placeholder="Filter logs..." />
               <label class="checkbox small">
                 <input type="checkbox" id="logs-raw" />
-                <span>Raw</span>
+                <span data-i18n="logs.raw">Raw</span>
               </label>
               <label class="checkbox small">
                 <input type="checkbox" id="logs-autoscroll" checked />
-                <span>Auto-scroll</span>
+                <span data-i18n="logs.autoscroll">Auto-scroll</span>
               </label>
-              <button id="btn-logs-toggle" class="btn btn-secondary btn-xs">Pausar</button>
-              <a href="/api/logs/download" class="btn btn-secondary btn-xs">Baixar</a>
-              <button id="btn-logs-clear" class="btn btn-danger btn-xs">Limpar</button>
+              <button id="btn-logs-toggle" class="btn btn-secondary btn-xs" data-i18n="logs.pause">Pause</button>
+              <a href="/api/logs/download" class="btn btn-secondary btn-xs" data-i18n="logs.download">Download</a>
+              <button id="btn-logs-clear" class="btn btn-danger btn-xs" data-i18n="logs.clear">Clear</button>
             </div>
           </div>
           <div id="logs-output" class="logs-terminal"></div>
@@ -516,14 +524,14 @@
   <div id="server-modal" class="overlay hidden">
     <div class="modal-card">
       <div class="card-header">
-        <h3 id="server-modal-title">Adicionar Servidor</h3>
+        <h3 id="server-modal-title" data-i18n="srv.add_title">Add Server</h3>
         <button class="btn btn-ghost btn-xs" onclick="closeModal('server-modal')">✕</button>
       </div>
       <form id="server-form" class="stack">
         <input type="hidden" id="srv-orig-section" />
         <div class="form-grid-2">
           <label class="field">
-            <span>Protocolo</span>
+            <span data-i18n="srv.protocol">Protocol</span>
             <select id="srv-protocol">
               <option value="IMAP">IMAP</option>
               <option value="SMTP">SMTP</option>
@@ -531,52 +539,52 @@
             </select>
           </label>
           <label class="field">
-            <span>Porta Local</span>
+            <span data-i18n="srv.local_port">Local Port</span>
             <div class="row" style="flex-wrap:nowrap;">
               <input type="number" id="srv-local-port" min="1024" max="65535" placeholder="1993" required />
-              <button type="button" id="btn-check-srv-port" class="btn btn-secondary btn-xs" style="white-space:nowrap;">Verificar</button>
+              <button type="button" id="btn-check-srv-port" class="btn btn-secondary btn-xs" data-i18n="srv.check_port" style="white-space:nowrap;">Check</button>
             </div>
             <small id="srv-port-check-msg" class="muted hidden"></small>
           </label>
           <label class="field">
-            <span>Servidor Remoto</span>
+            <span data-i18n="srv.remote_host">Remote Server</span>
             <input type="text" id="srv-remote-host" placeholder="outlook.office365.com" required />
           </label>
           <label class="field">
-            <span>Porta Remota</span>
+            <span data-i18n="srv.remote_port">Remote Port</span>
             <input type="number" id="srv-remote-port" min="1" max="65535" placeholder="993" required />
           </label>
         </div>
         <label class="field">
-          <span>Endereço Local</span>
+          <span data-i18n="srv.local_addr">Local Address</span>
           <input type="text" id="srv-local-addr" value="0.0.0.0" />
         </label>
         <div class="checkbox-row">
           <label class="checkbox">
             <input type="checkbox" id="srv-server-starttls" />
-            <span>Remoto usa STARTTLS (<code>server_starttls</code>)</span>
+            <span data-i18n-html="srv.remote_starttls">Remote uses STARTTLS (<code>server_starttls</code>)</span>
           </label>
           <label class="checkbox">
             <input type="checkbox" id="srv-local-tls" />
-            <span>Ativar TLS local (<code>/config/proxy-cert.pem</code>)</span>
+            <span data-i18n-html="srv.local_tls">Enable local TLS (<code>/config/proxy-cert.pem</code>)</span>
           </label>
           <label class="checkbox">
             <input type="checkbox" id="srv-local-starttls" />
-            <span>Emular STARTTLS local (<code>local_starttls</code>, só SMTP)</span>
+            <span data-i18n-html="srv.local_starttls">Emulate local STARTTLS (<code>local_starttls</code>, SMTP only)</span>
           </label>
         </div>
         <label class="field">
-          <span>Ação nas Portas Docker / Compose</span>
+          <span data-i18n="cfg.port_mode_label">Docker / Compose Ports Action</span>
           <select id="srv-port-mode">
-            <option value="none">Apenas salvar emailproxy.config (não alterar portas Docker)</option>
-            <option value="docker_only">Verificar disponibilidade e abrir no Docker agora (Modo B)</option>
-            <option value="compose_and_docker">Verificar, atualizar docker-compose.yml e abrir no Docker (Modo A + B)</option>
-            <option value="compose_only">Atualizar apenas o arquivo docker-compose.yml (Modo A)</option>
+            <option value="none" data-i18n="cfg.port_mode_none">Save emailproxy.config only (do not change Docker ports)</option>
+            <option value="docker_only" data-i18n="cfg.port_mode_docker">Check availability and open in Docker now (Mode B)</option>
+            <option value="compose_and_docker" data-i18n="cfg.port_mode_both">Check, update docker-compose.yml and open in Docker (Mode A + B)</option>
+            <option value="compose_only" data-i18n="cfg.port_mode_compose">Update docker-compose.yml file only (Mode A)</option>
           </select>
         </label>
         <div class="row right">
-          <button type="button" class="btn btn-ghost" onclick="closeModal('server-modal')">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Salvar Servidor</button>
+          <button type="button" class="btn btn-ghost" onclick="closeModal('server-modal')" data-i18n="common.cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" data-i18n="srv.save">Save Server</button>
         </div>
       </form>
     </div>
@@ -586,104 +594,104 @@
   <div id="account-modal" class="overlay hidden">
     <div class="modal-card modal-wide" style="max-height: 90vh; overflow-y: auto;">
       <div class="card-header">
-        <h3 id="account-modal-title">Editar Conta</h3>
+        <h3 id="account-modal-title" data-i18n="acc.edit_title">Edit Account</h3>
         <button type="button" class="btn btn-ghost btn-xs" onclick="closeModal('account-modal')">✕</button>
       </div>
       <form id="account-form" class="stack">
         <input type="hidden" id="acc-orig-name" />
         <div class="form-grid-2">
           <label class="field">
-            <span>Conta ou Regra Catch-All</span>
-            <input type="text" id="acc-name" placeholder="email@dominio.com ou @dominio.com" required />
+            <span data-i18n="acc.name_label">Account or Catch-All Rule</span>
+            <input type="text" id="acc-name" data-i18n-placeholder="acc.name_ph" placeholder="email@domain.com or @domain.com" required />
           </label>
           <label class="field">
-            <span>Fluxo OAuth (<code>oauth2_flow</code>)</span>
+            <span data-i18n-html="acc.flow_label">OAuth Flow (<code>oauth2_flow</code>)</span>
             <select id="acc-flow">
-              <option value="">Authorization Code (Padrão)</option>
-              <option value="device">Device Flow (O365 / Entra sem redirect)</option>
-              <option value="client_credentials">Client Credentials Grant (O365 CCG)</option>
-              <option value="password">Resource Owner Password (O365 ROPCG)</option>
-              <option value="service_account">Google Workspace Service Account</option>
+              <option value="" data-i18n="acc.flow_authcode">Authorization Code (Default)</option>
+              <option value="device" data-i18n="acc.flow_device">Device Flow (O365 / Entra without redirect)</option>
+              <option value="client_credentials" data-i18n="acc.flow_ccg">Client Credentials Grant (O365 CCG)</option>
+              <option value="password" data-i18n="acc.flow_ropcg">Resource Owner Password (O365 ROPCG)</option>
+              <option value="service_account" data-i18n="acc.flow_sa">Google Workspace Service Account</option>
             </select>
           </label>
         </div>
 
         <label class="field" id="acc-perm-url-wrap">
-          <span>Permission URL (<code>permission_url</code>)</span>
+          <span data-i18n-html="acc.perm_url">Permission URL (<code>permission_url</code>)</span>
           <input type="text" id="acc-perm-url" placeholder="https://login.microsoftonline.com/common/oauth2/v2.0/authorize" />
         </label>
 
         <label class="field">
-          <span>Token URL (<code>token_url</code>)</span>
+          <span data-i18n-html="acc.token_url">Token URL (<code>token_url</code>)</span>
           <input type="text" id="acc-token-url" placeholder="https://oauth2.googleapis.com/token" required />
         </label>
 
         <div class="form-grid-2">
           <label class="field">
-            <span>Escopo (<code>oauth2_scope</code>)</span>
+            <span data-i18n-html="acc.scope">Scope (<code>oauth2_scope</code>)</span>
             <input type="text" id="acc-scope" placeholder="https://mail.google.com/" />
           </label>
           <label class="field hidden" id="acc-resource-wrap">
-            <span>Resource (<code>oauth2_resource</code> — opcional ROPCG)</span>
+            <span data-i18n-html="acc.resource">Resource (<code>oauth2_resource</code> — optional ROPCG)</span>
             <input type="text" id="acc-resource" placeholder="https://partner.outlook.cn" />
           </label>
         </div>
 
         <div class="form-grid-2" id="acc-redirect-wrap">
           <label class="field">
-            <span>Redirect URI (<code>redirect_uri</code>)</span>
+            <span data-i18n-html="acc.redirect_uri">Redirect URI (<code>redirect_uri</code>)</span>
             <div class="row" style="flex-wrap:nowrap;">
               <input type="text" id="acc-redirect-uri" placeholder="https://localhost" />
-              <button type="button" id="btn-acc-use-panel" class="btn btn-secondary btn-xs" style="white-space:nowrap;">Usar Painel</button>
+              <button type="button" id="btn-acc-use-panel" class="btn btn-secondary btn-xs" data-i18n="cfg.use_panel" style="white-space:nowrap;">Use Panel</button>
             </div>
           </label>
           <label class="field">
-            <span>Redirect Listen Address (<code>redirect_listen_address</code>)</span>
+            <span data-i18n-html="acc.redirect_listen">Redirect Listen Address (<code>redirect_listen_address</code>)</span>
             <input type="text" id="acc-redirect-listen" placeholder="http://0.0.0.0:80" />
           </label>
         </div>
 
         <div class="form-grid-2">
           <label class="field">
-            <span id="acc-client-id-label">Client ID (<code>client_id</code>)</span>
+            <span id="acc-client-id-label" data-i18n-html="acc.client_id">Client ID (<code>client_id</code>)</span>
             <input type="text" id="acc-client-id" required />
-            <small id="acc-client-id-hint" class="muted hidden">Use <code>file</code> (caminho do JSON abaixo) ou <code>key</code> (cole o conteúdo JSON abaixo).</small>
+            <small id="acc-client-id-hint" class="muted hidden" data-i18n-html="acc.client_id_hint">Use <code>file</code> (JSON path below) or <code>key</code> (paste JSON content below).</small>
           </label>
           <label class="field" style="justify-content:center;">
             <span>PKCE</span>
             <label class="checkbox" style="margin-top:6px;">
               <input type="checkbox" id="acc-use-pkce" />
-              <span>Usar PKCE (<code>use_pkce = True</code>)</span>
+              <span data-i18n-html="acc.use_pkce">Use PKCE (<code>use_pkce = True</code>)</span>
             </label>
           </label>
         </div>
 
         <label class="field">
-          <span id="acc-secret-label">Client Secret (<code>client_secret</code> — opcional)</span>
-          <textarea id="acc-client-secret" class="code-editor" rows="2" placeholder="Deixe vazio para não usar secret (ou marque manter existente abaixo)"></textarea>
+          <span id="acc-secret-label" data-i18n-html="acc.secret_label">Client Secret (<code>client_secret</code> — optional)</span>
+          <textarea id="acc-client-secret" class="code-editor" rows="2" data-i18n-placeholder="acc.secret_ph" placeholder="Leave empty to skip secret (or check keep existing below)"></textarea>
           <label id="acc-keep-secret-wrap" class="checkbox small hidden">
             <input type="checkbox" id="acc-keep-secret" checked />
-            <span>Manter <code>client_secret</code> já salvo se este campo ficar vazio</span>
+            <span data-i18n-html="acc.keep_secret">Keep existing <code>client_secret</code> if this field is left empty</span>
           </label>
         </label>
 
         <details id="acc-jwt-details" class="guide-box" style="margin-top:0;">
-          <summary>Credenciais por Certificado JWT (Office 365 avançado)</summary>
+          <summary data-i18n="acc.jwt_summary">JWT Certificate Credentials (Advanced Office 365)</summary>
           <div class="form-grid-2" style="margin-top:12px;">
             <label class="field">
-              <span>JWT Certificate Path (<code>jwt_certificate_path</code>)</span>
+              <span data-i18n-html="acc.jwt_cert">JWT Certificate Path (<code>jwt_certificate_path</code>)</span>
               <input type="text" id="acc-jwt-cert" placeholder="/config/jwt-cert.pem" />
             </label>
             <label class="field">
-              <span>JWT Key Path (<code>jwt_key_path</code>)</span>
+              <span data-i18n-html="acc.jwt_key">JWT Key Path (<code>jwt_key_path</code>)</span>
               <input type="text" id="acc-jwt-key" placeholder="/config/jwt-key.pem" />
             </label>
           </div>
         </details>
 
         <div class="row right">
-          <button type="button" class="btn btn-ghost" onclick="closeModal('account-modal')">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Salvar Conta</button>
+          <button type="button" class="btn btn-ghost" onclick="closeModal('account-modal')" data-i18n="common.cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" data-i18n="acc.save">Save Account</button>
         </div>
       </form>
     </div>
@@ -694,15 +702,15 @@
     <div class="modal-card modal-wide">
       <div class="card-header">
         <div>
-          <h3 id="acc-modal-title">Detalhes da Conta</h3>
+          <h3 id="acc-modal-title" data-i18n="acc.info_title">Account Details</h3>
           <p id="acc-modal-sub" class="muted small" style="margin:2px 0 0;"></p>
         </div>
         <button class="btn btn-ghost btn-xs" onclick="closeModal('account-info-modal')">✕</button>
       </div>
       <div id="acc-modal-body" class="stack"></div>
       <div class="row right" style="margin-top:16px;">
-        <button type="button" id="btn-copy-acc-summary" class="btn btn-secondary btn-sm">Copiar Resumo</button>
-        <button type="button" class="btn btn-primary btn-sm" onclick="closeModal('account-info-modal')">Fechar</button>
+        <button type="button" id="btn-copy-acc-summary" class="btn btn-secondary btn-sm" data-i18n="oauth.copy_summary">Copy Summary</button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="closeModal('account-info-modal')" data-i18n="common.close">Close</button>
       </div>
     </div>
   </div>
@@ -712,32 +720,32 @@
     <div class="modal-card modal-wide" style="max-height: 90vh; overflow-y: auto;">
       <div class="card-header">
         <div>
-          <h3>Gerenciar Portas Docker &amp; Compose</h3>
-          <p class="muted small" id="ports-modal-sub" style="margin:2px 0 0;">Verifique disponibilidade no servidor e escolha como publicar as portas.</p>
+          <h3 data-i18n="ports.modal_title">Manage Docker &amp; Compose Ports</h3>
+          <p class="muted small" id="ports-modal-sub" style="margin:2px 0 0;" data-i18n="ports.modal_sub">Check host availability and choose how to publish ports.</p>
         </div>
         <button type="button" class="btn btn-ghost btn-xs" onclick="closeModal('ports-modal')">✕</button>
       </div>
 
       <div class="stack">
         <div id="ports-modal-pid-warn" class="alert alert-warn small hidden">
-          <span>O painel está rodando com <code>pid: "service:email-oauth2-proxy"</code>. Remova essa linha do compose e reinicie pelo Runtipi antes de recriar portas via Docker.</span>
+          <span data-i18n-html="ports.pid_warn">The panel is running with <code>pid: "service:email-oauth2-proxy"</code>. Remove that line from compose and restart via Runtipi before recreating ports via Docker.</span>
         </div>
 
         <div id="ports-modal-compose-info" class="alert alert-info small"></div>
 
         <div class="card-header" style="margin-bottom:0;">
-          <strong>Portas Configuradas &amp; Disponibilidade</strong>
-          <button type="button" id="btn-ports-check-all" class="btn btn-secondary btn-xs">Verificar Disponibilidade</button>
+          <strong data-i18n="ports.section_title">Configured Ports &amp; Availability</strong>
+          <button type="button" id="btn-ports-check-all" class="btn btn-secondary btn-xs" data-i18n="ports.check_all">Check Availability</button>
         </div>
 
         <div id="ports-manager-list" class="ports-list"></div>
 
         <details class="guide-box" style="margin-top:0;">
-          <summary>Visualizar / Copiar bloco YAML (<code>ports:</code>)</summary>
+          <summary data-i18n-html="ports.yaml_summary">View / Copy YAML block (<code>ports:</code>)</summary>
           <div class="stack" style="margin-top:10px;">
             <textarea id="ports-yaml-preview" class="code-editor" rows="8" readonly></textarea>
             <div class="row right">
-              <button type="button" id="btn-copy-ports-yaml" class="btn btn-secondary btn-xs">Copiar YAML</button>
+              <button type="button" id="btn-copy-ports-yaml" class="btn btn-secondary btn-xs" data-i18n="ports.copy_yaml">Copy YAML</button>
             </div>
           </div>
         </details>
@@ -745,20 +753,20 @@
         <div class="ports-modal-footer">
           <div class="ports-actions-grid">
             <button type="button" id="btn-ports-apply-compose-only" class="btn btn-secondary btn-port-action">
-              <span>Salvar no Compose</span>
-              <small>Modo A</small>
+              <span data-i18n="ports.btn_mode_a">Save to Compose</span>
+              <small data-i18n="ports.btn_mode_a_sub">Mode A</small>
             </button>
             <button type="button" id="btn-ports-apply-docker" class="btn btn-primary btn-port-action">
-              <span>Abrir no Docker Agora</span>
-              <small>Modo B</small>
+              <span data-i18n="ports.btn_mode_b">Open in Docker Now</span>
+              <small data-i18n="ports.btn_mode_b_sub">Mode B</small>
             </button>
             <button type="button" id="btn-ports-apply-both" class="btn btn-success btn-port-action">
-              <span>Compose + Docker</span>
-              <small>Modo A + B</small>
+              <span data-i18n="ports.btn_mode_ab">Compose + Docker</span>
+              <small data-i18n="ports.btn_mode_ab_sub">Mode A + B</small>
             </button>
           </div>
           <div class="row right">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('ports-modal')">Fechar</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('ports-modal')" data-i18n="common.close">Close</button>
           </div>
         </div>
       </div>
@@ -769,13 +777,13 @@
   <div id="confirm-modal" class="overlay hidden">
     <div class="modal-card" style="max-width: 440px;">
       <div class="card-header">
-        <h3 id="confirm-modal-title">Confirmar ação</h3>
+        <h3 id="confirm-modal-title" data-i18n="common.confirm_title">Confirm action</h3>
         <button type="button" class="btn btn-ghost btn-xs" id="confirm-modal-close">✕</button>
       </div>
       <p id="confirm-modal-message" class="muted" style="margin: 0 0 20px; line-height: 1.55;"></p>
       <div class="row right">
-        <button type="button" class="btn btn-ghost btn-sm" id="confirm-modal-cancel">Cancelar</button>
-        <button type="button" class="btn btn-danger btn-sm" id="confirm-modal-ok">Confirmar</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="confirm-modal-cancel" data-i18n="common.cancel">Cancel</button>
+        <button type="button" class="btn btn-danger btn-sm" id="confirm-modal-ok" data-i18n="common.confirm">Confirm</button>
       </div>
     </div>
   </div>
@@ -783,6 +791,7 @@
   <!-- Toast Container -->
   <div id="toast-container" class="toast-container"></div>
 
+  <script src="/translations.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

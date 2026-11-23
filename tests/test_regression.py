@@ -29,6 +29,7 @@ Tracker:
 - REG-022: Email OAuth2 Proxy UI must map ${APP_PORT}:8090 matching internal_port 8090 and mask ADMIN_PASSWORD
 - REG-023: Email OAuth2 Proxy UI must cross-compile natively via $BUILDPLATFORM into FROM scratch without QEMU
 - REG-024: Email OAuth2 Proxy UI ports-modal footer must keep structured 3-column grid (.ports-actions-grid) and all action IDs
+- REG-025: Email OAuth2 Proxy UI must default to English, support browser auto-PT + sidebar selector, and keep EN/PT keys in sync
 """
 
 import re
@@ -398,6 +399,46 @@ def test_reg_024_email_oauth2_proxy_ui_ports_modal_actions_grid(repo_root):
         assert f'id="{btn_id}"' in html_text
     assert ".ports-actions-grid" in css_text
     assert "grid-template-columns: repeat(3" in css_text
+
+
+def test_reg_025_email_oauth2_proxy_ui_i18n_completeness(repo_root):
+    """REG-025: Verify translation file exists, HTML defaults to English with sidebar
+    language selector, and every data-i18n / t() key exists in both 'en' and 'pt'."""
+    web_dir = repo_root / "packages" / "email-oauth2-proxy-ui" / "web"
+    html_text = (web_dir / "index.html").read_text(encoding="utf-8")
+    js_text = (web_dir / "app.js").read_text(encoding="utf-8")
+    tr_path = web_dir / "translations.js"
+
+    assert tr_path.exists(), "[REG-025] Missing web/translations.js"
+    tr_text = tr_path.read_text(encoding="utf-8")
+
+    assert '<html lang="en">' in html_text
+    assert 'id="lang-select"' in html_text
+    assert '<script src="/translations.js"></script>' in html_text
+    assert "detectBrowserLanguage" in js_text
+
+    # Extract keys from translations.js for en and pt blocks
+    en_block = tr_text.split("  pt: {", 1)[0]
+    pt_block = tr_text.split("  pt: {", 1)[1]
+    en_keys = set(re.findall(r"^\s+'([^']+)':", en_block, re.MULTILINE))
+    pt_keys = set(re.findall(r"^\s+'([^']+)':", pt_block, re.MULTILINE))
+
+    assert en_keys, "[REG-025] Failed to parse English keys from translations.js"
+    assert en_keys == pt_keys, (
+        f"[REG-025] EN/PT key mismatch. Missing in PT: {sorted(en_keys - pt_keys)} | Extra in PT: {sorted(pt_keys - en_keys)}"
+    )
+
+    html_keys = set(re.findall(r'data-i18n(?:-(?:html|placeholder|title))?="([^"]+)"', html_text))
+    js_keys = set(re.findall(r"\bt\(\s*'([^']+)'", js_text))
+    # Dynamic tab header keys constructed in updateTabHeader
+    for tab in ("dashboard", "oauth", "config", "certs", "logs"):
+        js_keys.add(f"tab.{tab}.title")
+        js_keys.add(f"tab.{tab}.sub")
+
+    used_keys = html_keys | js_keys
+    missing = used_keys - en_keys
+    assert not missing, f"[REG-025] Missing translation keys in translations.js: {sorted(missing)}"
+
 
 
 
