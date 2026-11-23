@@ -1,7 +1,7 @@
 # MurkTipi App Store 🏪
 
 [![CI & Anti-Regression Tests](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml/badge.svg)](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-37%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
+[![Tests Passing](https://img.shields.io/badge/tests-43%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
 [![Runtipi Schema](https://img.shields.io/badge/runtipi%20schema-v2-blue.svg)](https://runtipi.io)
 
 Repositório customizado de aplicativos (App Store de Usuário) para o **[Runtipi](https://runtipi.io)**, mantido por **[@murkbra](https://github.com/murkbra)**.
@@ -56,6 +56,13 @@ Servidor local oficial da Telegram Bot API empacotado pelo projeto **aiogram** (
   - `TELEGRAM_VERBOSITY`: `0` (nível de logs padrão).
 - **Persistência:** Dados armazenados automaticamente em `${APP_DATA_DIR}/data`.
 
+### 4. 🔐 [Email OAuth2 Proxy UI](apps/email-oauth2-proxy-ui)
+Painel web leve em Go (código-fonte em [`packages/email-oauth2-proxy-ui`](packages/email-oauth2-proxy-ui)) para gerenciar uma instalação existente do **Email OAuth2 Proxy** no Runtipi, sem depender de imagens privadas no GHCR (compilação automática no boot via `golang:1.24-alpine` com cache em `${APP_DATA_DIR}/data/bin`).
+
+- **Integração Direta:** Conecta na pasta `data/config` do `email-oauth2-proxy` (`PROXY_CONFIG_DIR`), na rede `tipi_main_network` (`PROXY_HOST`) e no `/var/run/docker.sock` (`PROXY_CONTAINER`).
+- **Funcionalidades:** Assistente OAuth 1-clique, monitor de pedidos OAuth externos, probes IMAP/SMTP/POP, geração de CA/certificados TLS, gerenciador de portas Docker/Compose, editor do `emailproxy.config`, Debug ao vivo (`SIGUSR1`) e streaming de logs.
+- **Autenticação Opcional:** Login por sessão configurável via `ADMIN_USER` e `ADMIN_PASSWORD`.
+
 ---
 
 ## 🧪 Política de Testes & Anti-Regressão
@@ -86,7 +93,8 @@ Este repositório possui uma suíte rigorosa de testes automatizados e uma polí
 - `tests/test_spiral_pool.py`: Testes específicos da Spiral Pool (modos single/multi, flags de moedas, dependência saudável do Postgres, portas Stratum).
 - `tests/test_technitium.py`: Testes específicos do Technitium (validação das 3 variáveis essenciais, portas DNS UDP/TCP 53, console 5380 e formato `logo.jpg`).
 - `tests/test_telegram_bot_api.py`: Testes específicos do Telegram Bot API (obrigatoriedade de API ID/Hash, exclusão de `TZ` do formulário, preservação dos padrões originais, mapeamento `${APP_PORT}:2627` e `logo.jpg`).
-- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-020`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
+- `tests/test_email_oauth2_proxy_ui.py`: Testes específicos do Email OAuth2 Proxy UI (campos de conexão com o proxy existente, volumes seguros, pacote Go em `packages/email-oauth2-proxy-ui` e `logo.jpg`).
+- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-022`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
 - `.github/workflows/ci.yml`: Automação contínua no GitHub Actions disparada a cada push e pull request.
 
 ---

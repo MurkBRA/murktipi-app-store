@@ -1,0 +1,70 @@
+{
+  "$schema": "https://raw.githubusercontent.com/runtipi/runtipi-docs/main/src/content/docs/reference/app-config.schema.json",
+  "id": "email-oauth2-proxy-ui",
+  "name": "Email OAuth2 Proxy UI",
+  "port": 8090,
+  "available": true,
+  "categories": ["utilities", "security"],
+  "description": "Lightweight Go Web UI for managing an existing Email OAuth2 Proxy installation on Runtipi. Provides 1-click OAuth authentication, external client OAuth monitoring, real-time port probing, provider presets, TLS/CA certificate generation, Docker port management, config editor, and live log streaming.",
+  "short_desc": "Web UI manager for Email OAuth2 Proxy on Runtipi",
+  "author": "MurkBRA",
+  "tipi_version": 1,
+  "version": "1.0.0",
+  "source": "https://github.com/MurkBRA/murktipi-app-store/tree/main/packages/email-oauth2-proxy-ui",
+  "website": "https://github.com/MurkBRA/murktipi-app-store",
+  "exposable": true,
+  "dynamic_config": true,
+  "supported_architectures": ["amd64", "arm64"],
+  "form_fields": [
+    {
+      "type": "text",
+      "label": "Pasta Config do Email OAuth2 Proxy (Host)",
+      "hint": "Caminho absoluto no servidor para a pasta data/config do app email-oauth2-proxy já instalado no Runtipi (ex: /opt/runtipi/app-data/migrated/email-oauth2-proxy/data/config ou .../app-data/runtipi/email-oauth2-proxy/data/config).",
+      "placeholder": "/opt/runtipi/app-data/migrated/email-oauth2-proxy/data/config",
+      "env_variable": "PROXY_CONFIG_DIR",
+      "required": true
+    },
+    {
+      "type": "text",
+      "label": "Pasta User-Config do Proxy (Opcional - Modo A)",
+      "hint": "Caminho opcional no servidor da pasta user-config onde fica o docker-compose.yml do email-oauth2-proxy para sincronizar portas no YAML (Modo A).",
+      "placeholder": "/opt/runtipi/user-config/migrated/email-oauth2-proxy",
+      "env_variable": "PROXY_COMPOSE_DIR",
+      "default": "/tmp/email-oauth2-proxy-compose",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "Host / Serviço do Proxy (PROXY_HOST)",
+      "hint": "Hostname ou nome do serviço do Email OAuth2 Proxy na rede Docker do Runtipi (tipi_main_network). Padrão: email-oauth2-proxy.",
+      "env_variable": "PROXY_HOST",
+      "default": "email-oauth2-proxy",
+      "required": true
+    },
+    {
+      "type": "text",
+      "label": "Nome do Container do Proxy (PROXY_CONTAINER)",
+      "hint": "Nome exato do container Docker do Email OAuth2 Proxy para reiniciar, alternar Debug Mode (SIGUSR1) e gerenciar portas. Padrão: email-oauth2-proxy.",
+      "env_variable": "PROXY_CONTAINER",
+      "default": "email-oauth2-proxy",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "Usuário do Painel (ADMIN_USER)",
+      "hint": "Nome de usuário para login na Web UI (utilizado apenas se ADMIN_PASSWORD estiver preenchida). Padrão: admin.",
+      "env_variable": "ADMIN_USER",
+      "default": "admin",
+      "required": false
+    },
+    {
+      "type": "password",
+      "label": "Senha do Painel (ADMIN_PASSWORD)",
+      "hint": "Defina uma senha para proteger o painel Web UI com login por sessão. Deixe em branco para manter a autenticação desativada.",
+      "placeholder": "Opcional (em branco = sem login)",
+      "env_variable": "ADMIN_PASSWORD",
+      "default": "",
+      "required": false
+    }
+  ]
+}

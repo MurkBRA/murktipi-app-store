@@ -25,6 +25,8 @@ Tracker:
 - REG-018: Telegram Bot API must require API ID/Hash, exclude TZ from form_fields, and preserve defaults
 - REG-019: Telegram Bot API must map ${APP_PORT}:2627 matching internal_port 2627 to prevent duplicate port binding
 - REG-020: CI workflow setup-python pip cache must reference an existing dependency file (requirements-dev.txt)
+- REG-021: Email OAuth2 Proxy UI must bind ${PROXY_CONFIG_DIR}:/config:rw, safe compose fallback, and valid Go source path
+- REG-022: Email OAuth2 Proxy UI must map ${APP_PORT}:8090 matching internal_port 8090 and mask ADMIN_PASSWORD
 """
 
 import re
@@ -338,5 +340,34 @@ def test_reg_020_ci_workflow_pip_cache_dependency_path_exists(repo_root):
                 assert (repo_root / dep_path).exists(), (
                     f"[REG-020] CI cache-dependency-path '{dep_path}' does not exist in repo"
                 )
+
+
+def test_reg_021_email_oauth2_proxy_ui_volumes_and_bundled_source(repo_root, get_app_compose):
+    """REG-021: Ensure email-oauth2-proxy-ui does not use empty optional bind mounts and
+    points its build command to the bundled Go package inside the repository."""
+    compose = get_app_compose("email-oauth2-proxy-ui")
+    svc = compose["services"]["email-oauth2-proxy-ui"]
+    volumes = [str(v) for v in svc.get("volumes", [])]
+
+    assert "${PROXY_CONFIG_DIR}:/config:rw" in volumes
+    assert any(v.startswith("${PROXY_COMPOSE_DIR:-") and v.endswith(":/compose:rw") for v in volumes), (
+        "[REG-021] Regression: PROXY_COMPOSE_DIR mount must provide a non-empty fallback before :/compose:rw"
+    )
+    assert (repo_root / "packages" / "email-oauth2-proxy-ui" / "go.mod").exists()
+
+
+def test_reg_022_email_oauth2_proxy_ui_port_mapping_and_password_mask(get_app_config, get_app_compose):
+    """REG-022: Ensure ${APP_PORT}:8090 matches internal_port 8090 and ADMIN_PASSWORD uses password type."""
+    cfg = get_app_config("email-oauth2-proxy-ui")
+    fields = {f["env_variable"]: f for f in cfg.get("form_fields", [])}
+    assert fields["ADMIN_PASSWORD"]["type"] == "password"
+
+    compose = get_app_compose("email-oauth2-proxy-ui")
+    svc = compose["services"]["email-oauth2-proxy-ui"]
+    ports = [str(p) for p in svc.get("ports", [])]
+    assert svc.get("x-runtipi", {}).get("internal_port") == 8090
+    assert "${APP_PORT}:8090" in ports
+    assert "8090:8090" not in ports
+
 
 

@@ -1,0 +1,63 @@
+x-runtipi:
+  schema_version: 2
+
+services:
+  email-oauth2-proxy-ui:
+    image: golang:1.24-alpine
+    container_name: email-oauth2-proxy-ui
+    restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        mkdir -p /app-cache
+        if ! command -v curl >/dev/null 2>&1; then
+          apk add --no-cache curl >/dev/null 2>&1 || true
+        fi
+        if command -v curl >/dev/null 2>&1 && curl -fsSL "https://codeload.github.com/MurkBRA/murktipi-app-store/tar.gz/refs/heads/main" -o /tmp/repo.tar.gz; then
+          rm -rf /tmp/src
+          mkdir -p /tmp/src
+          tar -xzf /tmp/repo.tar.gz -C /tmp/src
+          cd /tmp/src/*/packages/email-oauth2-proxy-ui
+          CGO_ENABLED=0 GOTOOLCHAIN=local go build -buildvcs=false -trimpath -ldflags="-s -w" -o /app-cache/eop-ui.new .
+          mv /app-cache/eop-ui.new /app-cache/eop-ui
+          rm -rf /tmp/repo.tar.gz /tmp/src
+        elif [ ! -x /app-cache/eop-ui ]; then
+          echo "ERROR: could not download source and no cached binary in /app-cache/eop-ui" >&2
+          exit 1
+        fi
+        exec /app-cache/eop-ui
+    ports:
+      - "${APP_PORT}:8090"
+    volumes:
+      - ${APP_DATA_DIR}/data/bin:/app-cache:rw
+      - ${PROXY_CONFIG_DIR}:/config:rw
+      - ${PROXY_COMPOSE_DIR:-/tmp/email-oauth2-proxy-compose}:/compose:rw
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      TZ: ${TZ}
+      GOTOOLCHAIN: "local"
+      CGO_ENABLED: "0"
+      LISTEN_ADDR: ":8090"
+      CONFIG_DIR: "/config"
+      COMPOSE_DIR: "/compose"
+      PROXY_HOST: "${PROXY_HOST:-email-oauth2-proxy}"
+      PROXY_CONTAINER: "${PROXY_CONTAINER:-email-oauth2-proxy}"
+      ADMIN_USER: "${ADMIN_USER:-admin}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8090/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+    networks:
+      - tipi_main_network
+    x-runtipi:
+      is_main: true
+      internal_port: 8090
+
+networks:
+  tipi_main_network:
+    external: true
