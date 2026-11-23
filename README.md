@@ -1,7 +1,7 @@
 # MurkTipi App Store 🏪
 
 [![CI & Anti-Regression Tests](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml/badge.svg)](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-31%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
+[![Tests Passing](https://img.shields.io/badge/tests-36%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
 [![Runtipi Schema](https://img.shields.io/badge/runtipi%20schema-v2-blue.svg)](https://runtipi.io)
 
 Repositório customizado de aplicativos (App Store de Usuário) para o **[Runtipi](https://runtipi.io)**, mantido por **[@murkbra](https://github.com/murkbra)**.
@@ -44,6 +44,18 @@ Servidor DNS autoritativo e recursivo de nível corporativo com bloqueio de anú
 - **Portas Suportadas:** Porta 53 (TCP e UDP) para consultas DNS de alto desempenho e porta 5380 para interface gráfica.
 - **Resolução & Criptografia:** Suporte a DoH (DNS-over-HTTPS), DoT (DNS-over-TLS) e DoQ (DNS-over-QUIC) configuráveis pela interface.
 
+### 3. 🤖 [Telegram Bot API](apps/telegram-bot-api)
+Servidor local oficial da Telegram Bot API empacotado pelo projeto **aiogram** (`aiogram/telegram-bot-api`), removendo limites da API na nuvem e permitindo acesso a arquivos locais.
+
+- **Credenciais Obrigatórias (`my.telegram.org`):**
+  - `TELEGRAM_API_ID` e `TELEGRAM_API_HASH` (da conta cliente do Telegram, não o token do bot).
+- **Variáveis Pré-configuradas no Instalador:**
+  - `TELEGRAM_LOCAL`: `"1"` (modo local ativado).
+  - `TELEGRAM_HTTP_PORT`: `2627` (porta HTTP interna mapeada via `${APP_PORT}:2627`).
+  - `TELEGRAM_STAT`: `"1"` (endpoint de estatísticas ativo).
+  - `TELEGRAM_VERBOSITY`: `0` (nível de logs padrão).
+- **Persistência:** Dados armazenados automaticamente em `${APP_DATA_DIR}/data`.
+
 ---
 
 ## 🧪 Política de Testes & Anti-Regressão
@@ -73,7 +85,8 @@ Este repositório possui uma suíte rigorosa de testes automatizados e uma polí
 - `tests/test_compose_validation.py`: Valida a sintaxe YAML do `docker-compose.yml`, o padrão Runtipi v2 (`x-runtipi.schema_version: 2`), serviço principal (`is_main: true`) e mapeamento correto de todas as variáveis de ambiente.
 - `tests/test_spiral_pool.py`: Testes específicos da Spiral Pool (modos single/multi, flags de moedas, dependência saudável do Postgres, portas Stratum).
 - `tests/test_technitium.py`: Testes específicos do Technitium (validação das 3 variáveis essenciais, portas DNS UDP/TCP 53, console 5380 e formato `logo.jpg`).
-- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-017`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
+- `tests/test_telegram_bot_api.py`: Testes específicos do Telegram Bot API (obrigatoriedade de API ID/Hash, exclusão de `TZ` do formulário, preservação dos padrões originais, mapeamento `${APP_PORT}:2627` e `logo.jpg`).
+- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-019`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
 - `.github/workflows/ci.yml`: Automação contínua no GitHub Actions disparada a cada push e pull request.
 
 ---

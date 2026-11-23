@@ -1,0 +1,68 @@
+{
+  "$schema": "https://raw.githubusercontent.com/runtipi/runtipi-docs/main/src/content/docs/reference/app-config.schema.json",
+  "id": "telegram-bot-api",
+  "name": "Telegram Bot API",
+  "port": 2627,
+  "available": true,
+  "categories": ["development", "automation", "utilities"],
+  "description": "Self-hosted local Telegram Bot API server packaged by aiogram. Removes standard cloud Bot API limits (such as 50 MB file uploads and 20 MB downloads, supporting up to 2000 MB), enables local file access, and provides dedicated webhook and polling performance.",
+  "short_desc": "Self-hosted local Telegram Bot API server by aiogram",
+  "author": "aiogram / tdlib",
+  "tipi_version": 1,
+  "version": "latest",
+  "source": "https://github.com/aiogram/telegram-bot-api",
+  "website": "https://core.telegram.org/bots/api#using-a-local-bot-api-server",
+  "exposable": true,
+  "dynamic_config": true,
+  "supported_architectures": ["amd64", "arm64"],
+  "form_fields": [
+    {
+      "type": "number",
+      "label": "Telegram API ID",
+      "hint": "API ID da sua conta de cliente Telegram obtido em my.telegram.org (não é o token do bot).",
+      "placeholder": "Ex: 12345678",
+      "env_variable": "TELEGRAM_API_ID",
+      "required": true
+    },
+    {
+      "type": "password",
+      "label": "Telegram API Hash",
+      "hint": "API Hash da sua conta de cliente Telegram obtido em my.telegram.org (não é o token do bot).",
+      "placeholder": "Hash obtido em my.telegram.org",
+      "env_variable": "TELEGRAM_API_HASH",
+      "required": true
+    },
+    {
+      "type": "text",
+      "label": "Modo Local (TELEGRAM_LOCAL)",
+      "hint": "Permite que o servidor Bot API atenda requisições locais e acesse arquivos locais. Padrão: 1 (deixe como está para manter a configuração original).",
+      "env_variable": "TELEGRAM_LOCAL",
+      "default": "1",
+      "required": false
+    },
+    {
+      "type": "number",
+      "label": "Porta HTTP (TELEGRAM_HTTP_PORT)",
+      "hint": "Porta HTTP interna em que o serviço telegram-bot-api escuta dentro do container. Padrão: 2627 (para mudar a porta externa no host, altere o campo Porta do Runtipi).",
+      "env_variable": "TELEGRAM_HTTP_PORT",
+      "default": 2627,
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "Estatísticas HTTP (TELEGRAM_STAT)",
+      "hint": "Ativa o endpoint HTTP de estatísticas do servidor Bot API. Padrão: 1 (deixe como está para manter a configuração original).",
+      "env_variable": "TELEGRAM_STAT",
+      "default": "1",
+      "required": false
+    },
+    {
+      "type": "number",
+      "label": "Verbosidade dos Logs (TELEGRAM_VERBOSITY)",
+      "hint": "Nível de detalhamento dos logs do servidor Bot API (0 = mínimo, valores maiores = mais detalhado). Padrão: 0.",
+      "env_variable": "TELEGRAM_VERBOSITY",
+      "default": 0,
+      "required": false
+    }
+  ]
+}

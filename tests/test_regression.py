@@ -21,6 +21,9 @@ Tracker:
 - REG-014: All apps must have metadata/logo.jpg in JPEG format for proper Runtipi catalog display
 - REG-015: Technitium has strictly 3 variables without selection lists (domain=technitium-dns, recursion=Allow, password=senha)
 - REG-016: Spiral Pool must use standard Runtipi categories (utilities) avoiding store rejection
+- REG-017: Technitium logo must be the official Wikimedia image converted to 512x512 JPEG
+- REG-018: Telegram Bot API must require API ID/Hash, exclude TZ from form_fields, and preserve defaults
+- REG-019: Telegram Bot API must map ${APP_PORT}:2627 matching internal_port 2627 to prevent duplicate port binding
 """
 
 import re
@@ -268,6 +271,48 @@ def test_reg_017_technitium_logo_is_official_converted_jpg(apps_dir):
         assert 230 <= corner_b <= 255, f"[REG-017] Unexpected corner Blue value: {corner_b}"
 
 
+def test_reg_018_telegram_bot_api_env_vars_and_defaults(get_app_config, get_app_compose):
+    """REG-018: Telegram Bot API must require API ID/Hash, exclude TZ from form_fields,
+    and preserve exact compose defaults when the user leaves optional fields untouched."""
+    config = get_app_config("telegram-bot-api")
+    form_fields = config.get("form_fields", [])
+    field_map = {f["env_variable"]: f for f in form_fields}
+
+    assert "TZ" not in field_map, "[REG-018] Regression: TZ must not be in install form_fields"
+    assert set(field_map.keys()) == {
+        "TELEGRAM_API_ID",
+        "TELEGRAM_API_HASH",
+        "TELEGRAM_LOCAL",
+        "TELEGRAM_HTTP_PORT",
+        "TELEGRAM_STAT",
+        "TELEGRAM_VERBOSITY",
+    }
+
+    assert field_map["TELEGRAM_API_ID"].get("required") is True
+    assert field_map["TELEGRAM_API_HASH"].get("required") is True
+    assert field_map["TELEGRAM_LOCAL"].get("default") == "1"
+    assert field_map["TELEGRAM_HTTP_PORT"].get("default") == 2627
+    assert field_map["TELEGRAM_STAT"].get("default") == "1"
+    assert field_map["TELEGRAM_VERBOSITY"].get("default") == 0
+
+    compose = get_app_compose("telegram-bot-api")
+    env = compose["services"]["telegram-bot-api"].get("environment", {})
+    assert "TZ" in env
+    assert "${TELEGRAM_LOCAL:-1}" == str(env.get("TELEGRAM_LOCAL"))
+    assert "${TELEGRAM_HTTP_PORT:-2627}" == str(env.get("TELEGRAM_HTTP_PORT"))
+    assert "${TELEGRAM_STAT:-1}" == str(env.get("TELEGRAM_STAT"))
+    assert "${TELEGRAM_VERBOSITY:-0}" == str(env.get("TELEGRAM_VERBOSITY"))
 
 
+def test_reg_019_telegram_bot_api_port_mapping_matches_runtipi_internal_port(get_app_compose):
+    """REG-019: Ports must bind ${APP_PORT}:2627 matching internal_port 2627 so Runtipi
+    does not inject a second conflicting port mapping on startup."""
+    compose = get_app_compose("telegram-bot-api")
+    svc = compose["services"]["telegram-bot-api"]
+    ports = [str(p) for p in svc.get("ports", [])]
+    internal_port = svc.get("x-runtipi", {}).get("internal_port")
+
+    assert internal_port == 2627
+    assert "${APP_PORT}:2627" in ports
+    assert "2627:2627" not in ports
 
