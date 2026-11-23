@@ -24,6 +24,7 @@ Tracker:
 - REG-017: Technitium logo must be the official Wikimedia image converted to 512x512 JPEG
 - REG-018: Telegram Bot API must require API ID/Hash, exclude TZ from form_fields, and preserve defaults
 - REG-019: Telegram Bot API must map ${APP_PORT}:2627 matching internal_port 2627 to prevent duplicate port binding
+- REG-020: CI workflow setup-python pip cache must reference an existing dependency file (requirements-dev.txt)
 """
 
 import re
@@ -315,4 +316,27 @@ def test_reg_019_telegram_bot_api_port_mapping_matches_runtipi_internal_port(get
     assert internal_port == 2627
     assert "${APP_PORT}:2627" in ports
     assert "2627:2627" not in ports
+
+
+def test_reg_020_ci_workflow_pip_cache_dependency_path_exists(repo_root):
+    """REG-020: Prevent setup-python cache='pip' failure when requirements.txt does not exist."""
+    import yaml
+
+    ci_path = repo_root / ".github" / "workflows" / "ci.yml"
+    assert ci_path.exists(), "[REG-020] Missing .github/workflows/ci.yml"
+    ci_data = yaml.safe_load(ci_path.read_text(encoding="utf-8"))
+
+    for job_name, job_def in ci_data.get("jobs", {}).items():
+        for step in job_def.get("steps", []):
+            uses = str(step.get("uses", ""))
+            with_cfg = step.get("with", {}) or {}
+            if "actions/setup-python" in uses and with_cfg.get("cache") == "pip":
+                dep_path = with_cfg.get("cache-dependency-path")
+                assert dep_path, (
+                    f"[REG-020] Job '{job_name}' uses cache='pip' without 'cache-dependency-path'"
+                )
+                assert (repo_root / dep_path).exists(), (
+                    f"[REG-020] CI cache-dependency-path '{dep_path}' does not exist in repo"
+                )
+
 
