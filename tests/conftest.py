@@ -12,6 +12,7 @@ STANDARD_RUNTIPI_VARS = {
     "APP_PORT",
     "TZ",
     "RUNTIPI_APP_DATA_PATH",
+    "ROOT_FOLDER_HOST",
 }
 
 @pytest.fixture(scope="session")

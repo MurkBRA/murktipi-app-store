@@ -57,10 +57,10 @@ Servidor local oficial da Telegram Bot API empacotado pelo projeto **aiogram** (
 - **Persistência:** Dados armazenados automaticamente em `${APP_DATA_DIR}/data`.
 
 ### 4. 🔐 [Email OAuth2 Proxy UI](apps/email-oauth2-proxy-ui)
-Painel web leve em Go (código-fonte em [`packages/email-oauth2-proxy-ui`](packages/email-oauth2-proxy-ui)) para gerenciar uma instalação existente do **Email OAuth2 Proxy** no Runtipi, sem depender de imagens privadas no GHCR (compilação automática no boot via `golang:1.24-alpine` com cache em `${APP_DATA_DIR}/data/bin`).
+Painel web leve em Go ([`packages/email-oauth2-proxy-ui`](packages/email-oauth2-proxy-ui)) com imagem multi-arch (`amd64`/`arm64`) compilada via GitHub Actions em `ghcr.io/murkbra/email-oauth2-proxy-ui:latest` para gerenciar uma instalação existente do **Email OAuth2 Proxy** no Runtipi.
 
-- **Integração Direta:** Conecta na pasta `data/config` do `email-oauth2-proxy` (`PROXY_CONFIG_DIR`), na rede `tipi_main_network` (`PROXY_HOST`) e no `/var/run/docker.sock` (`PROXY_CONTAINER`).
-- **Funcionalidades:** Assistente OAuth 1-clique, monitor de pedidos OAuth externos, probes IMAP/SMTP/POP, geração de CA/certificados TLS, gerenciador de portas Docker/Compose, editor do `emailproxy.config`, Debug ao vivo (`SIGUSR1`) e streaming de logs.
+- **Integração Automática via `ROOT_FOLDER_HOST`:** Monta automaticamente `${ROOT_FOLDER_HOST}/app-data/${PROXY_STORE_ID:-migrated}/email-oauth2-proxy/data/config` em `/config` e `${ROOT_FOLDER_HOST}/user-config/${PROXY_STORE_ID:-migrated}/email-oauth2-proxy` em `/compose`, além de `/var/run/docker.sock` e conexão na rede `tipi_main_network` (`PROXY_HOST`).
+- **Funcionalidades:** Assistente OAuth 1-clique, monitor de pedidos OAuth externos, probes IMAP/SMTP/POP, geração de CA/certificados TLS, gerenciador de portas Docker/Compose (Modos A e B), editor do `emailproxy.config`, Debug ao vivo (`SIGUSR1`) e streaming de logs.
 - **Autenticação Opcional:** Login por sessão configurável via `ADMIN_USER` e `ADMIN_PASSWORD`.
 
 ---
@@ -93,7 +93,7 @@ Este repositório possui uma suíte rigorosa de testes automatizados e uma polí
 - `tests/test_spiral_pool.py`: Testes específicos da Spiral Pool (modos single/multi, flags de moedas, dependência saudável do Postgres, portas Stratum).
 - `tests/test_technitium.py`: Testes específicos do Technitium (validação das 3 variáveis essenciais, portas DNS UDP/TCP 53, console 5380 e formato `logo.jpg`).
 - `tests/test_telegram_bot_api.py`: Testes específicos do Telegram Bot API (obrigatoriedade de API ID/Hash, exclusão de `TZ` do formulário, preservação dos padrões originais, mapeamento `${APP_PORT}:2627` e `logo.jpg`).
-- `tests/test_email_oauth2_proxy_ui.py`: Testes específicos do Email OAuth2 Proxy UI (campos de conexão com o proxy existente, volumes seguros, pacote Go em `packages/email-oauth2-proxy-ui` e `logo.jpg`).
+- `tests/test_email_oauth2_proxy_ui.py`: Testes específicos do Email OAuth2 Proxy UI (integração `ROOT_FOLDER_HOST`, `PROXY_STORE_ID`, imagem GHCR, Dockerfile Go 1.27 Alpine e `logo.jpg`).
 - `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-022`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
 - `.github/workflows/ci.yml`: Automação contínua no GitHub Actions disparada a cada push e pull request.
 

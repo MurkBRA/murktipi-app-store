@@ -33,6 +33,7 @@ STANDARD_RUNTIPI_VARS = {
     "APP_PORT",
     "TZ",
     "RUNTIPI_APP_DATA_PATH",
+    "ROOT_FOLDER_HOST",
 }
 
 ENV_VAR_REGEX = re.compile(r"\$\{([A-Za-z0-9_]+)(?::-([^}]*))?\}")

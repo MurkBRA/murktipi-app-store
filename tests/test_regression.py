@@ -25,7 +25,7 @@ Tracker:
 - REG-018: Telegram Bot API must require API ID/Hash, exclude TZ from form_fields, and preserve defaults
 - REG-019: Telegram Bot API must map ${APP_PORT}:2627 matching internal_port 2627 to prevent duplicate port binding
 - REG-020: CI workflow setup-python pip cache must reference an existing dependency file (requirements-dev.txt)
-- REG-021: Email OAuth2 Proxy UI must bind ${PROXY_CONFIG_DIR}:/config:rw, safe compose fallback, and valid Go source path
+- REG-021: Email OAuth2 Proxy UI must use ROOT_FOLDER_HOST (never RUNTIPI_USER_CONFIG_PATH) for /config and /compose mounts and GHCR image
 - REG-022: Email OAuth2 Proxy UI must map ${APP_PORT}:8090 matching internal_port 8090 and mask ADMIN_PASSWORD
 """
 
@@ -342,18 +342,20 @@ def test_reg_020_ci_workflow_pip_cache_dependency_path_exists(repo_root):
                 )
 
 
-def test_reg_021_email_oauth2_proxy_ui_volumes_and_bundled_source(repo_root, get_app_compose):
-    """REG-021: Ensure email-oauth2-proxy-ui does not use empty optional bind mounts and
-    points its build command to the bundled Go package inside the repository."""
+def test_reg_021_email_oauth2_proxy_ui_volumes_and_ghcr_image(repo_root, get_app_compose):
+    """REG-021: Runtipi strips RUNTIPI_USER_CONFIG_PATH from app.env and injects ROOT_FOLDER_HOST.
+    Ensure /config and /compose use ROOT_FOLDER_HOST + PROXY_STORE_ID and GHCR image is configured."""
     compose = get_app_compose("email-oauth2-proxy-ui")
     svc = compose["services"]["email-oauth2-proxy-ui"]
     volumes = [str(v) for v in svc.get("volumes", [])]
 
-    assert "${PROXY_CONFIG_DIR}:/config:rw" in volumes
-    assert any(v.startswith("${PROXY_COMPOSE_DIR:-") and v.endswith(":/compose:rw") for v in volumes), (
-        "[REG-021] Regression: PROXY_COMPOSE_DIR mount must provide a non-empty fallback before :/compose:rw"
+    assert svc.get("image") == "ghcr.io/murkbra/email-oauth2-proxy-ui:latest"
+    assert not any("RUNTIPI_USER_CONFIG_PATH" in v for v in volumes), (
+        "[REG-021] Regression: Runtipi strips RUNTIPI_USER_CONFIG_PATH from app.env; use ROOT_FOLDER_HOST instead"
     )
-    assert (repo_root / "packages" / "email-oauth2-proxy-ui" / "go.mod").exists()
+    assert "${ROOT_FOLDER_HOST}/app-data/${PROXY_STORE_ID:-migrated}/email-oauth2-proxy/data/config:/config:rw" in volumes
+    assert "${ROOT_FOLDER_HOST}/user-config/${PROXY_STORE_ID:-migrated}/email-oauth2-proxy:/compose:rw" in volumes
+    assert (repo_root / "packages" / "email-oauth2-proxy-ui" / "Dockerfile").exists()
 
 
 def test_reg_022_email_oauth2_proxy_ui_port_mapping_and_password_mask(get_app_config, get_app_compose):

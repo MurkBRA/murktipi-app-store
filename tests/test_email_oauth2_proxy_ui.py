@@ -15,16 +15,15 @@ def test_email_oauth2_proxy_ui_config_fields(get_app_config):
     assert "TZ" not in fields_by_var
 
     assert set(fields_by_var.keys()) == {
-        "PROXY_CONFIG_DIR",
-        "PROXY_COMPOSE_DIR",
+        "PROXY_STORE_ID",
         "PROXY_HOST",
         "PROXY_CONTAINER",
         "ADMIN_USER",
         "ADMIN_PASSWORD",
     }
 
-    assert fields_by_var["PROXY_CONFIG_DIR"]["required"] is True
-    assert fields_by_var["PROXY_COMPOSE_DIR"]["required"] is False
+    assert fields_by_var["PROXY_STORE_ID"]["required"] is True
+    assert fields_by_var["PROXY_STORE_ID"]["default"] == "migrated"
     assert fields_by_var["PROXY_HOST"]["required"] is True
     assert fields_by_var["PROXY_HOST"]["default"] == "email-oauth2-proxy"
     assert fields_by_var["PROXY_CONTAINER"]["default"] == "email-oauth2-proxy"
@@ -40,7 +39,7 @@ def test_email_oauth2_proxy_ui_compose_structure(get_app_compose):
     assert "email-oauth2-proxy-ui" in services
     svc = services["email-oauth2-proxy-ui"]
 
-    assert svc.get("image") == "golang:1.24-alpine"
+    assert svc.get("image") == "ghcr.io/murkbra/email-oauth2-proxy-ui:latest"
     assert svc.get("container_name") == "email-oauth2-proxy-ui"
     assert svc.get("restart") == "unless-stopped"
 
@@ -48,9 +47,8 @@ def test_email_oauth2_proxy_ui_compose_structure(get_app_compose):
     assert "${APP_PORT}:8090" in ports
 
     volumes = [str(v) for v in svc.get("volumes", [])]
-    assert "${APP_DATA_DIR}/data/bin:/app-cache:rw" in volumes
-    assert "${PROXY_CONFIG_DIR}:/config:rw" in volumes
-    assert "${PROXY_COMPOSE_DIR:-/tmp/email-oauth2-proxy-compose}:/compose:rw" in volumes
+    assert "${ROOT_FOLDER_HOST}/app-data/${PROXY_STORE_ID:-migrated}/email-oauth2-proxy/data/config:/config:rw" in volumes
+    assert "${ROOT_FOLDER_HOST}/user-config/${PROXY_STORE_ID:-migrated}/email-oauth2-proxy:/compose:rw" in volumes
     assert "/var/run/docker.sock:/var/run/docker.sock" in volumes
 
     env = svc.get("environment", {})
@@ -69,17 +67,23 @@ def test_email_oauth2_proxy_ui_compose_structure(get_app_compose):
     assert runtipi_cfg.get("internal_port") == 8090
 
 
-def test_email_oauth2_proxy_ui_go_source_bundled(repo_root, get_app_compose):
+def test_email_oauth2_proxy_ui_dockerfile_and_workflow(repo_root):
     src_dir = repo_root / "packages" / "email-oauth2-proxy-ui"
+    dockerfile = src_dir / "Dockerfile"
+    workflow = repo_root / ".github" / "workflows" / "docker-email-oauth2-proxy-ui.yml"
+
     assert (src_dir / "go.mod").exists()
     assert (src_dir / "main.go").exists()
-    assert (src_dir / "internal").is_dir()
-    assert (src_dir / "web").is_dir()
+    assert dockerfile.exists()
+    assert workflow.exists()
 
-    compose = get_app_compose("email-oauth2-proxy-ui")
-    cmd = " ".join(str(x) for x in compose["services"]["email-oauth2-proxy-ui"].get("command", []))
-    assert "packages/email-oauth2-proxy-ui" in cmd
-    assert "codeload.github.com/MurkBRA/murktipi-app-store" in cmd
+    df_text = dockerfile.read_text(encoding="utf-8")
+    assert "FROM golang:1.27-alpine AS builder" in df_text
+    assert "FROM alpine:latest" in df_text
+
+    wf_text = workflow.read_text(encoding="utf-8")
+    assert "ghcr.io" in wf_text
+    assert "murkbra/email-oauth2-proxy-ui" in wf_text
 
 
 def test_email_oauth2_proxy_ui_logo_is_square_jpg(apps_dir):

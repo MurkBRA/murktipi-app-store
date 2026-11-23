@@ -9,7 +9,7 @@
   "short_desc": "Web UI manager for Email OAuth2 Proxy on Runtipi",
   "author": "MurkBRA",
   "tipi_version": 1,
-  "version": "1.0.0",
+  "version": "latest",
   "source": "https://github.com/MurkBRA/murktipi-app-store/tree/main/packages/email-oauth2-proxy-ui",
   "website": "https://github.com/MurkBRA/murktipi-app-store",
   "exposable": true,
@@ -18,20 +18,11 @@
   "form_fields": [
     {
       "type": "text",
-      "label": "Pasta Config do Email OAuth2 Proxy (Host)",
-      "hint": "Caminho absoluto no servidor para a pasta data/config do app email-oauth2-proxy já instalado no Runtipi (ex: /opt/runtipi/app-data/migrated/email-oauth2-proxy/data/config ou .../app-data/runtipi/email-oauth2-proxy/data/config).",
-      "placeholder": "/opt/runtipi/app-data/migrated/email-oauth2-proxy/data/config",
-      "env_variable": "PROXY_CONFIG_DIR",
+      "label": "Store Slug do Email OAuth2 Proxy (PROXY_STORE_ID)",
+      "hint": "Subpasta da loja onde o email-oauth2-proxy está instalado dentro de app-data/ e user-config/ (ex: migrated para apps migrados ou runtipi para instalação nova da loja oficial). Padrão: migrated.",
+      "env_variable": "PROXY_STORE_ID",
+      "default": "migrated",
       "required": true
-    },
-    {
-      "type": "text",
-      "label": "Pasta User-Config do Proxy (Opcional - Modo A)",
-      "hint": "Caminho opcional no servidor da pasta user-config onde fica o docker-compose.yml do email-oauth2-proxy para sincronizar portas no YAML (Modo A).",
-      "placeholder": "/opt/runtipi/user-config/migrated/email-oauth2-proxy",
-      "env_variable": "PROXY_COMPOSE_DIR",
-      "default": "/tmp/email-oauth2-proxy-compose",
-      "required": false
     },
     {
       "type": "text",
