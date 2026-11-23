@@ -558,6 +558,32 @@ input:focus, select:focus, textarea:focus {
   font-size: 13px;
   color: #93c5fd;
 }
+.ports-modal-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 14px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+}
+.ports-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.btn-port-action {
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  text-align: center;
+  line-height: 1.25;
+}
+.btn-port-action small {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.85;
+}
 .brand-row h1 { margin: 0; font-size: 18px; }
 .brand-row p { margin: 0; font-size: 12.5px; }
 
@@ -591,6 +617,6 @@ input:focus, select:focus, textarea:focus {
   .nav { flex-direction: row; overflow-x: auto; }
   .main { padding: 16px 14px 24px; }
   .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .wizard-grid, .form-grid-3, .form-grid-2 { grid-template-columns: 1fr; }
+  .wizard-grid, .form-grid-3, .form-grid-2, .ports-actions-grid { grid-template-columns: 1fr; }
   .logs-card { height: calc(100vh - 240px); height: calc(100dvh - 240px); min-height: 300px; }
 }

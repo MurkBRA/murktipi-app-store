@@ -742,11 +742,24 @@
           </div>
         </details>
 
-        <div class="row right" style="padding-top:6px;">
-          <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('ports-modal')">Fechar</button>
-          <button type="button" id="btn-ports-apply-compose-only" class="btn btn-secondary btn-sm">Salvar só no Compose (Modo A)</button>
-          <button type="button" id="btn-ports-apply-docker" class="btn btn-primary btn-sm">Abrir no Docker Agora (Modo B)</button>
-          <button type="button" id="btn-ports-apply-both" class="btn btn-success btn-sm">Compose + Abrir no Docker (A + B)</button>
+        <div class="ports-modal-footer">
+          <div class="ports-actions-grid">
+            <button type="button" id="btn-ports-apply-compose-only" class="btn btn-secondary btn-port-action">
+              <span>Salvar no Compose</span>
+              <small>Modo A</small>
+            </button>
+            <button type="button" id="btn-ports-apply-docker" class="btn btn-primary btn-port-action">
+              <span>Abrir no Docker Agora</span>
+              <small>Modo B</small>
+            </button>
+            <button type="button" id="btn-ports-apply-both" class="btn btn-success btn-port-action">
+              <span>Compose + Docker</span>
+              <small>Modo A + B</small>
+            </button>
+          </div>
+          <div class="row right">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('ports-modal')">Fechar</button>
+          </div>
         </div>
       </div>
     </div>

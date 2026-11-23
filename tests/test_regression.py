@@ -28,6 +28,7 @@ Tracker:
 - REG-021: Email OAuth2 Proxy UI must use ROOT_FOLDER_HOST (never RUNTIPI_USER_CONFIG_PATH) for /config and /compose mounts and GHCR image
 - REG-022: Email OAuth2 Proxy UI must map ${APP_PORT}:8090 matching internal_port 8090 and mask ADMIN_PASSWORD
 - REG-023: Email OAuth2 Proxy UI must cross-compile natively via $BUILDPLATFORM into FROM scratch without QEMU
+- REG-024: Email OAuth2 Proxy UI ports-modal footer must keep structured 3-column grid (.ports-actions-grid) and all action IDs
 """
 
 import re
@@ -382,6 +383,22 @@ def test_reg_023_email_oauth2_proxy_ui_scratch_and_no_qemu(repo_root):
     assert "--platform=$BUILDPLATFORM" in df_text
     assert "FROM scratch" in df_text
     assert "setup-qemu-action" not in wf_text
+
+
+def test_reg_024_email_oauth2_proxy_ui_ports_modal_actions_grid(repo_root):
+    """REG-024: Keep ports-modal action buttons organized in a 3-column grid separated
+    from the Close button so long labels do not wrap raggedly."""
+    web_dir = repo_root / "packages" / "email-oauth2-proxy-ui" / "web"
+    html_text = (web_dir / "index.html").read_text(encoding="utf-8")
+    css_text = (web_dir / "styles.css").read_text(encoding="utf-8")
+
+    assert 'class="ports-modal-footer"' in html_text
+    assert 'class="ports-actions-grid"' in html_text
+    for btn_id in ("btn-ports-apply-compose-only", "btn-ports-apply-docker", "btn-ports-apply-both"):
+        assert f'id="{btn_id}"' in html_text
+    assert ".ports-actions-grid" in css_text
+    assert "grid-template-columns: repeat(3" in css_text
+
 
 
 
