@@ -27,6 +27,7 @@ Tracker:
 - REG-020: CI workflow setup-python pip cache must reference an existing dependency file (requirements-dev.txt)
 - REG-021: Email OAuth2 Proxy UI must use ROOT_FOLDER_HOST (never RUNTIPI_USER_CONFIG_PATH) for /config and /compose mounts and GHCR image
 - REG-022: Email OAuth2 Proxy UI must map ${APP_PORT}:8090 matching internal_port 8090 and mask ADMIN_PASSWORD
+- REG-023: Email OAuth2 Proxy UI must cross-compile natively via $BUILDPLATFORM into FROM scratch without QEMU
 """
 
 import re
@@ -370,6 +371,18 @@ def test_reg_022_email_oauth2_proxy_ui_port_mapping_and_password_mask(get_app_co
     assert svc.get("x-runtipi", {}).get("internal_port") == 8090
     assert "${APP_PORT}:8090" in ports
     assert "8090:8090" not in ports
+
+
+def test_reg_023_email_oauth2_proxy_ui_scratch_and_no_qemu(repo_root):
+    """REG-023: Keep multi-arch builds fast and image minimal (~8 MB) using native Go
+    cross-compilation on $BUILDPLATFORM into FROM scratch without QEMU emulation."""
+    df_text = (repo_root / "packages" / "email-oauth2-proxy-ui" / "Dockerfile").read_text(encoding="utf-8")
+    wf_text = (repo_root / ".github" / "workflows" / "docker-email-oauth2-proxy-ui.yml").read_text(encoding="utf-8")
+
+    assert "--platform=$BUILDPLATFORM" in df_text
+    assert "FROM scratch" in df_text
+    assert "setup-qemu-action" not in wf_text
+
 
 
 

@@ -1,7 +1,7 @@
 # MurkTipi App Store 🏪
 
 [![CI & Anti-Regression Tests](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml/badge.svg)](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-43%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
+[![Tests Passing](https://img.shields.io/badge/tests-44%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
 [![Runtipi Schema](https://img.shields.io/badge/runtipi%20schema-v2-blue.svg)](https://runtipi.io)
 
 Repositório customizado de aplicativos (App Store de Usuário) para o **[Runtipi](https://runtipi.io)**, mantido por **[@murkbra](https://github.com/murkbra)**.
@@ -94,7 +94,7 @@ Este repositório possui uma suíte rigorosa de testes automatizados e uma polí
 - `tests/test_technitium.py`: Testes específicos do Technitium (validação das 3 variáveis essenciais, portas DNS UDP/TCP 53, console 5380 e formato `logo.jpg`).
 - `tests/test_telegram_bot_api.py`: Testes específicos do Telegram Bot API (obrigatoriedade de API ID/Hash, exclusão de `TZ` do formulário, preservação dos padrões originais, mapeamento `${APP_PORT}:2627` e `logo.jpg`).
 - `tests/test_email_oauth2_proxy_ui.py`: Testes específicos do Email OAuth2 Proxy UI (integração `ROOT_FOLDER_HOST`, `PROXY_STORE_ID`, imagem GHCR, Dockerfile Go 1.27 Alpine e `logo.jpg`).
-- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-022`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
+- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-023`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
 - `.github/workflows/ci.yml`: Automação contínua no GitHub Actions disparada a cada push e pull request.
 
 ---

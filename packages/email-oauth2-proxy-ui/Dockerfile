@@ -1,21 +1,22 @@
-# Stage 1: Build static Go binary
-FROM golang:1.27-alpine AS builder
+# Stage 1: Native cross-compile on host ($BUILDPLATFORM) without QEMU emulation
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS builder
+
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /src
-COPY go.mod ./
-COPY main.go ./
+COPY go.mod main.go ./
 COPY internal ./internal
 COPY web ./web
 
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/email-oauth2-proxy-ui .
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -trimpath -ldflags="-s -w" -o /out/email-oauth2-proxy-ui .
 
-# Stage 2: Minimal runtime image
-FROM alpine:latest
+# Stage 2: Zero-OS minimal runtime image (~8 MB total, 0 shell, 0 CVEs)
+FROM scratch
 
-RUN apk add --no-cache ca-certificates tzdata
-
-WORKDIR /app
-COPY --from=builder /out/email-oauth2-proxy-ui /usr/local/bin/email-oauth2-proxy-ui
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=builder /out/email-oauth2-proxy-ui /email-oauth2-proxy-ui
 
 ENV LISTEN_ADDR=":8090" \
     CONFIG_DIR="/config" \
@@ -25,4 +26,7 @@ ENV LISTEN_ADDR=":8090" \
 
 EXPOSE 8090
 
-ENTRYPOINT ["/usr/local/bin/email-oauth2-proxy-ui"]
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=10s \
+    CMD ["/email-oauth2-proxy-ui", "-healthcheck"]
+
+ENTRYPOINT ["/email-oauth2-proxy-ui"]

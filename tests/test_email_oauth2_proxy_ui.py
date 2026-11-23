@@ -62,6 +62,7 @@ def test_email_oauth2_proxy_ui_compose_structure(get_app_compose):
     assert env.get("ADMIN_PASSWORD") == "${ADMIN_PASSWORD:-}"
 
     assert "healthcheck" in svc
+    assert svc["healthcheck"]["test"] == ["CMD", "/email-oauth2-proxy-ui", "-healthcheck"]
     runtipi_cfg = svc.get("x-runtipi", {})
     assert runtipi_cfg.get("is_main") is True
     assert runtipi_cfg.get("internal_port") == 8090
@@ -78,12 +79,14 @@ def test_email_oauth2_proxy_ui_dockerfile_and_workflow(repo_root):
     assert workflow.exists()
 
     df_text = dockerfile.read_text(encoding="utf-8")
-    assert "FROM golang:1.27-alpine AS builder" in df_text
-    assert "FROM alpine:latest" in df_text
+    assert "FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS builder" in df_text
+    assert "FROM scratch" in df_text
+    assert "GOOS=${TARGETOS} GOARCH=${TARGETARCH}" in df_text
 
     wf_text = workflow.read_text(encoding="utf-8")
     assert "ghcr.io" in wf_text
     assert "murkbra/email-oauth2-proxy-ui" in wf_text
+    assert "setup-qemu-action" not in wf_text
 
 
 def test_email_oauth2_proxy_ui_logo_is_square_jpg(apps_dir):

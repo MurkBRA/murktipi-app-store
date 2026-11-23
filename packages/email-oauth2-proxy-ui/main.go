@@ -5,6 +5,7 @@ import (
 	"embed"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -20,6 +21,10 @@ var embeddedWeb embed.FS
 
 func main() {
 	listenAddr := envOr("LISTEN_ADDR", ":8090")
+	if len(os.Args) > 1 && os.Args[1] == "-healthcheck" {
+		os.Exit(runHealthcheck(listenAddr))
+	}
+
 	configDir := envOr("CONFIG_DIR", "/config")
 	proxyHost := envOr("PROXY_HOST", "email-oauth2-proxy")
 	proxyContainer := envOr("PROXY_CONTAINER", proxyHost)
@@ -76,6 +81,28 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = httpServer.Shutdown(ctx)
+}
+
+func runHealthcheck(listenAddr string) int {
+	host, port, err := net.SplitHostPort(listenAddr)
+	if err != nil || port == "" {
+		port = "8090"
+		host = "127.0.0.1"
+	}
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		host = "127.0.0.1"
+	}
+
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get("http://" + net.JoinHostPort(host, port) + "/api/health")
+	if err != nil {
+		return 1
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return 1
+	}
+	return 0
 }
 
 func envOr(key, fallback string) string {
