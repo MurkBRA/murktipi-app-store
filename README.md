@@ -1,7 +1,7 @@
 # MurkTipi App Store 🏪
 
 [![CI & Anti-Regression Tests](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml/badge.svg)](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-54%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
+[![Tests Passing](https://img.shields.io/badge/tests-58%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
 [![Runtipi Schema](https://img.shields.io/badge/runtipi%20schema-v2-blue.svg)](https://runtipi.io)
 
 Repositório customizado de aplicativos (App Store de Usuário) para o **[Runtipi](https://runtipi.io)**, mantido por **[@murkbra](https://github.com/murkbra)**.
@@ -69,6 +69,12 @@ Servidor de navegadores headless (**Browserless v2** `v2.64.3`) para automação
 - **Escolha da Imagem Base (`BROWSERLESS_IMAGE`):** Seleção no instalador entre `chrome` *(padrão)*, `chromium`, `firefox`, `webkit` e `multi` (`ghcr.io/browserless/<imagem>:v2.64.3`, com tag versionada para updates pelo Runtipi).
 - **Variáveis e `shm_size` Opcionais:** `SHM_SIZE`, `MAX_CONCURRENT_SESSIONS`, `CONNECTION_TIMEOUT`, `PREBOOT_CHROME`, `CHROME_REFRESH_TIME`, `ENABLE_CORS` e `DEMOING` sem valor forçado (se deixadas em branco, não são injetadas no container / `shm_size` mantém o padrão nativo `64m` do Docker).
 
+### 6. 🚢 [Dockhand](apps/dockhand)
+Painel moderno de gerenciamento Docker (`fnsys/dockhand:v1.0.59`) com orquestração visual de Compose stacks, GitOps, terminal/logs interativos, scanner de vulnerabilidades e backend **PostgreSQL 16** dedicado (`postgres:16-alpine` com healthcheck).
+
+- **Porta Ajustada:** Porta padrão do host definida em `3180` (`${APP_PORT}:3000`), evitando conflito com serviços na porta `3000`.
+- **Banco com Senha Aleatória:** `POSTGRES_USER` obrigatório definido pelo usuário, `POSTGRES_DB` (`dockhand`), e `POSTGRES_PASSWORD` gerado automaticamente pelo Runtipi em hexadecimal (`type: random`) para uso seguro na `DATABASE_URL` (sem `PUID`/`PGID` e com `CONTAINER_NAME` / `POSTGRES_CONTAINER_NAME` opcionais).
+
 ---
 
 ## 🧪 Política de Testes & Anti-Regressão
@@ -101,7 +107,8 @@ Este repositório possui uma suíte rigorosa de testes automatizados e uma polí
 - `tests/test_telegram_bot_api.py`: Testes específicos do Telegram Bot API (obrigatoriedade de API ID/Hash, exclusão de `TZ` do formulário, preservação dos padrões originais + `CONTAINER_NAME` opcional, mapeamento `${APP_PORT}:2627` e `logo.jpg`).
 - `tests/test_email_oauth2_proxy_ui.py`: Testes específicos do Email OAuth2 Proxy UI (integração `ROOT_FOLDER_HOST`, `PROXY_STORE_ID`, imagem GHCR, Dockerfile Go 1.27 Alpine e `logo.jpg`).
 - `tests/test_browserless.py`: Testes específicos do Browserless (versão `v2.64.3` fixada, seleção de imagem com `chrome` padrão, variáveis/shm_size opcionais sem default forçado, `CONTAINER_NAME` opcional e `logo.jpg`).
-- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-030`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
+- `tests/test_dockhand.py`: Testes específicos do Dockhand (`fnsys/dockhand:v1.0.59`, Postgres 16 com healthcheck, porta ajustada `3180 -> 3000`, ausência de `PUID`/`PGID`, `POSTGRES_USER` definido pelo usuário, `POSTGRES_PASSWORD` `random`/`hex` e `CONTAINER_NAME` configurável).
+- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-031`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
 - `.github/workflows/ci.yml`: Automação contínua no GitHub Actions disparada a cada push e pull request.
 
 ---

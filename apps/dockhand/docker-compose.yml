@@ -1,0 +1,49 @@
+x-runtipi:
+  schema_version: 2
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: "${POSTGRES_CONTAINER_NAME:-dockhand-postgres}"
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dockhand}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-dockhand}
+    volumes:
+      - ${APP_DATA_DIR}/data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - tipi_main_network
+
+  dockhand:
+    image: fnsys/dockhand:v1.0.59
+    container_name: "${CONTAINER_NAME:-dockhand}"
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT}:3000"
+    environment:
+      TZ: ${TZ}
+      DATABASE_URL: postgres://${POSTGRES_USER:-dockhand}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dockhand}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${APP_DATA_DIR}/data/dockhand:/app/data
+    networks:
+      - tipi_main_network
+    x-runtipi:
+      is_main: true
+      internal_port: 3000
+
+networks:
+  tipi_main_network:
+    external: true
