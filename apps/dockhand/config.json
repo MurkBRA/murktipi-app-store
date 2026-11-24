@@ -4,7 +4,7 @@
   "name": "Dockhand",
   "port": 3180,
   "available": true,
-  "categories": ["utilities", "development", "monitoring"],
+  "categories": ["utilities", "development"],
   "description": "Modern Docker management UI for real-time container control, visual Compose stack orchestration, Git stack deployments, interactive terminal and logs, container file browsing, vulnerability scanning, and multi-environment management via socket or Hawser.",
   "short_desc": "Modern Docker management UI with Compose stacks, terminal, logs, and PostgreSQL backend",
   "author": "Finsys",

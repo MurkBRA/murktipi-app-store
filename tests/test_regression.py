@@ -244,13 +244,24 @@ def test_reg_015_technitium_has_strictly_three_env_vars_and_no_selection_lists(g
     assert any("5380:5380/tcp" in p or "5380" in p for p in ports)
 
 def test_reg_016_apps_use_standard_runtipi_categories_and_spiral_shows_in_catalog(app_ids, get_app_config):
-    """REG-016: Non-standard categories (like 'crypto') prevent apps from showing in Runtipi.
-    Apps must only use recognized Runtipi categories."""
+    """REG-016: Non-standard categories (like 'crypto' or 'monitoring') cause Runtipi's appInfoSchema
+    indexer to silently drop apps from the catalog. Apps must strictly use Runtipi APP_CATEGORIES."""
     valid_runtipi_categories = {
-        "utilities", "network", "media", "development", "automation",
-        "social", "finance", "security", "data", "featured", "gaming",
-        "productivity", "monitoring", "smart-home", "downloaders",
-        "books", "audio", "photos"
+        "network",
+        "media",
+        "development",
+        "automation",
+        "social",
+        "utilities",
+        "photography",
+        "security",
+        "featured",
+        "books",
+        "data",
+        "music",
+        "finance",
+        "gaming",
+        "ai",
     }
 
     for app_id in app_ids:

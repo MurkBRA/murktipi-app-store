@@ -11,7 +11,7 @@ def test_dockhand_config_fields_and_random_password(get_app_config):
     assert config["version"].startswith("v1.")
     assert config["dynamic_config"] is True
     assert config["exposable"] is True
-    assert set(config["categories"]) == {"utilities", "development", "monitoring"}
+    assert set(config["categories"]) == {"utilities", "development"}
     assert config["supported_architectures"] == ["amd64", "arm64"]
 
     form_fields = config.get("form_fields", [])
