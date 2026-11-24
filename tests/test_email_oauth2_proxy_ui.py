@@ -20,6 +20,7 @@ def test_email_oauth2_proxy_ui_config_fields(get_app_config):
         "PROXY_CONTAINER",
         "ADMIN_USER",
         "ADMIN_PASSWORD",
+        "CONTAINER_NAME",
     }
 
     assert fields_by_var["PROXY_STORE_ID"]["required"] is True
@@ -30,6 +31,8 @@ def test_email_oauth2_proxy_ui_config_fields(get_app_config):
     assert fields_by_var["ADMIN_USER"]["default"] == "admin"
     assert fields_by_var["ADMIN_PASSWORD"]["type"] == "password"
     assert fields_by_var["ADMIN_PASSWORD"]["required"] is False
+    assert fields_by_var["CONTAINER_NAME"]["required"] is False
+    assert fields_by_var["CONTAINER_NAME"]["default"] == "email-oauth2-proxy-ui"
 
 
 def test_email_oauth2_proxy_ui_compose_structure(get_app_config, get_app_compose):
@@ -43,7 +46,7 @@ def test_email_oauth2_proxy_ui_compose_structure(get_app_config, get_app_compose
     assert config["version"] != "latest"
     assert config["tipi_version"] >= 2
     assert svc.get("image") == f"ghcr.io/murkbra/email-oauth2-proxy-ui:{config['version']}"
-    assert svc.get("container_name") == "email-oauth2-proxy-ui"
+    assert svc.get("container_name") == "${CONTAINER_NAME:-email-oauth2-proxy-ui}"
     assert svc.get("restart") == "unless-stopped"
 
     ports = [str(p) for p in svc.get("ports", [])]

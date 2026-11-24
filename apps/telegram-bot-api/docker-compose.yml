@@ -4,7 +4,7 @@ x-runtipi:
 services:
   telegram-bot-api:
     image: aiogram/telegram-bot-api:latest
-    container_name: telegram-bot-api
+    container_name: "${CONTAINER_NAME:-telegram-bot-api}"
     restart: unless-stopped
     environment:
       TZ: ${TZ}

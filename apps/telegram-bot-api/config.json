@@ -63,6 +63,17 @@
       "env_variable": "TELEGRAM_VERBOSITY",
       "default": 0,
       "required": false
+    },
+    {
+      "type": "text",
+      "label": "container_name",
+      "hint": "Custom Docker container name. Default: telegram-bot-api (if left blank, falls back to telegram-bot-api).",
+      "placeholder": "telegram-bot-api",
+      "regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]+$",
+      "pattern_error": "Must start with a letter or number and contain at least 2 characters (letters, numbers, '.', '_' or '-').",
+      "env_variable": "CONTAINER_NAME",
+      "default": "telegram-bot-api",
+      "required": false
     }
   ]
 }

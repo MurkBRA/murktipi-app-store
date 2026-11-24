@@ -1,7 +1,7 @@
 # MurkTipi App Store 🏪
 
 [![CI & Anti-Regression Tests](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml/badge.svg)](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-53%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
+[![Tests Passing](https://img.shields.io/badge/tests-54%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
 [![Runtipi Schema](https://img.shields.io/badge/runtipi%20schema-v2-blue.svg)](https://runtipi.io)
 
 Repositório customizado de aplicativos (App Store de Usuário) para o **[Runtipi](https://runtipi.io)**, mantido por **[@murkbra](https://github.com/murkbra)**.
@@ -97,11 +97,11 @@ Este repositório possui uma suíte rigorosa de testes automatizados e uma polí
 - `tests/test_schema_validation.py`: Valida o formato dos arquivos `config.json`, tipos de campos, obrigatoriedade de campos, logo 1:1 e descrições.
 - `tests/test_compose_validation.py`: Valida a sintaxe YAML do `docker-compose.yml`, o padrão Runtipi v2 (`x-runtipi.schema_version: 2`), serviço principal (`is_main: true`) e mapeamento correto de todas as variáveis de ambiente.
 - `tests/test_spiral_pool.py`: Testes específicos da Spiral Pool (modos single/multi, flags de moedas, dependência saudável do Postgres, portas Stratum).
-- `tests/test_technitium.py`: Testes específicos do Technitium (validação das 3 variáveis essenciais, portas DNS UDP/TCP 53, console 5380 e formato `logo.jpg`).
-- `tests/test_telegram_bot_api.py`: Testes específicos do Telegram Bot API (obrigatoriedade de API ID/Hash, exclusão de `TZ` do formulário, preservação dos padrões originais, mapeamento `${APP_PORT}:2627` e `logo.jpg`).
+- `tests/test_technitium.py`: Testes específicos do Technitium (validação das 3 variáveis de ambiente essenciais + `CONTAINER_NAME` opcional, portas DNS UDP/TCP 53, console 5380 e formato `logo.jpg`).
+- `tests/test_telegram_bot_api.py`: Testes específicos do Telegram Bot API (obrigatoriedade de API ID/Hash, exclusão de `TZ` do formulário, preservação dos padrões originais + `CONTAINER_NAME` opcional, mapeamento `${APP_PORT}:2627` e `logo.jpg`).
 - `tests/test_email_oauth2_proxy_ui.py`: Testes específicos do Email OAuth2 Proxy UI (integração `ROOT_FOLDER_HOST`, `PROXY_STORE_ID`, imagem GHCR, Dockerfile Go 1.27 Alpine e `logo.jpg`).
-- `tests/test_browserless.py`: Testes específicos do Browserless (versão `v2.64.3` fixada, seleção de imagem com `chrome` padrão, variáveis/shm_size opcionais sem default forçado e `logo.jpg`).
-- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-029`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
+- `tests/test_browserless.py`: Testes específicos do Browserless (versão `v2.64.3` fixada, seleção de imagem com `chrome` padrão, variáveis/shm_size opcionais sem default forçado, `CONTAINER_NAME` opcional e `logo.jpg`).
+- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-030`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
 - `.github/workflows/ci.yml`: Automação contínua no GitHub Actions disparada a cada push e pull request.
 
 ---

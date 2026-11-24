@@ -18,6 +18,7 @@ def test_browserless_config_fields_and_optional_defaults(get_app_config):
 
     expected_vars = {
         "BROWSERLESS_IMAGE",
+        "CONTAINER_NAME",
         "SHM_SIZE",
         "MAX_CONCURRENT_SESSIONS",
         "CONNECTION_TIMEOUT",
@@ -35,7 +36,10 @@ def test_browserless_config_fields_and_optional_defaults(get_app_config):
     assert opt_values[0] == "chrome"
     assert set(opt_values) == {"chrome", "chromium", "firefox", "webkit", "multi"}
 
-    for opt_var in expected_vars - {"BROWSERLESS_IMAGE"}:
+    assert fields_by_var["CONTAINER_NAME"]["required"] is False
+    assert fields_by_var["CONTAINER_NAME"]["default"] == "browserless"
+
+    for opt_var in expected_vars - {"BROWSERLESS_IMAGE", "CONTAINER_NAME"}:
         field = fields_by_var[opt_var]
         assert field.get("required") is False, f"{opt_var} must be optional"
         assert "default" not in field, (
@@ -52,7 +56,7 @@ def test_browserless_compose_structure_and_passthrough_env(get_app_config, get_a
     svc = services["browserless"]
 
     assert svc.get("image") == f"ghcr.io/browserless/${{BROWSERLESS_IMAGE:-chrome}}:{config['version']}"
-    assert svc.get("container_name") == "browserless"
+    assert svc.get("container_name") == "${CONTAINER_NAME:-browserless}"
     assert svc.get("restart") == "unless-stopped"
     assert svc.get("shm_size") == "${SHM_SIZE:-64m}"
 

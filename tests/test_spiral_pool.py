@@ -37,6 +37,11 @@ def test_spiral_pool_config_structure(get_app_config):
     assert fields_by_var["DASHBOARD_ADMIN_PASSWORD"]["type"] == "password"
     assert fields_by_var["DB_PASSWORD"]["type"] == "password"
 
+    # Verify optional per-service container_name fields
+    assert fields_by_var["DASHBOARD_CONTAINER_NAME"]["default"] == "spiral-pool-dashboard"
+    assert fields_by_var["STRATUM_CONTAINER_NAME"]["default"] == "spiral-pool-stratum"
+    assert fields_by_var["POSTGRES_CONTAINER_NAME"]["default"] == "spiral-pool-postgres"
+
 def test_spiral_pool_compose_services(get_app_compose):
     compose = get_app_compose("spiral-pool")
     services = compose["services"]
@@ -48,18 +53,21 @@ def test_spiral_pool_compose_services(get_app_compose):
     # Postgres checks
     pg = services["postgres"]
     assert pg["image"] == "postgres:16-alpine"
+    assert pg.get("container_name") == "${POSTGRES_CONTAINER_NAME:-spiral-pool-postgres}"
     assert "healthcheck" in pg
     assert pg["environment"]["POSTGRES_USER"] == "spiralstratum"
 
     # Stratum checks
     stratum = services["stratum"]
     assert stratum["image"] == "spiralpool/stratum:latest"
+    assert stratum.get("container_name") == "${STRATUM_CONTAINER_NAME:-spiral-pool-stratum}"
     assert "postgres" in stratum["depends_on"]
     assert stratum["depends_on"]["postgres"]["condition"] == "service_healthy"
 
     # Dashboard checks
     dash = services["dashboard"]
     assert dash["image"] == "spiralpool/dashboard:latest"
+    assert dash.get("container_name") == "${DASHBOARD_CONTAINER_NAME:-spiral-pool-dashboard}"
     assert dash["x-runtipi"]["is_main"] is True
     assert dash["x-runtipi"]["internal_port"] == 1618
     assert any("1618" in str(p) for p in dash.get("ports", []))

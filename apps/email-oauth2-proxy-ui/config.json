@@ -55,6 +55,17 @@
       "env_variable": "ADMIN_PASSWORD",
       "default": "",
       "required": false
+    },
+    {
+      "type": "text",
+      "label": "container_name",
+      "hint": "Custom Docker container name for this Web UI service. Default: email-oauth2-proxy-ui (if left blank, falls back to email-oauth2-proxy-ui).",
+      "placeholder": "email-oauth2-proxy-ui",
+      "regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]+$",
+      "pattern_error": "Must start with a letter or number and contain at least 2 characters (letters, numbers, '.', '_' or '-').",
+      "env_variable": "CONTAINER_NAME",
+      "default": "email-oauth2-proxy-ui",
+      "required": false
     }
   ]
 }

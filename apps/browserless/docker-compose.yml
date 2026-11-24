@@ -4,7 +4,7 @@ x-runtipi:
 services:
   browserless:
     image: ghcr.io/browserless/${BROWSERLESS_IMAGE:-chrome}:v2.64.3
-    container_name: browserless
+    container_name: "${CONTAINER_NAME:-browserless}"
     restart: unless-stopped
     shm_size: "${SHM_SIZE:-64m}"
     ports:

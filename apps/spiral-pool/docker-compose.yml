@@ -4,6 +4,7 @@ x-runtipi:
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: "${POSTGRES_CONTAINER_NAME:-spiral-pool-postgres}"
     restart: unless-stopped
     environment:
       POSTGRES_USER: spiralstratum
@@ -25,6 +26,7 @@ services:
   stratum:
     user: 0:0
     image: spiralpool/stratum:latest
+    container_name: "${STRATUM_CONTAINER_NAME:-spiral-pool-stratum}"
     restart: unless-stopped
     depends_on:
       postgres:
@@ -87,6 +89,7 @@ services:
   dashboard:
     user: 0:0
     image: spiralpool/dashboard:latest
+    container_name: "${DASHBOARD_CONTAINER_NAME:-spiral-pool-dashboard}"
     restart: unless-stopped
     depends_on:
       - stratum

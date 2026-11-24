@@ -4,7 +4,7 @@ x-runtipi:
 services:
   email-oauth2-proxy-ui:
     image: ghcr.io/murkbra/email-oauth2-proxy-ui:1.1.0
-    container_name: email-oauth2-proxy-ui
+    container_name: "${CONTAINER_NAME:-email-oauth2-proxy-ui}"
     restart: unless-stopped
     ports:
       - "${APP_PORT}:8090"

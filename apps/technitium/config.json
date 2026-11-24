@@ -44,6 +44,17 @@
       "env_variable": "DNS_SERVER_ADMIN_PASSWORD",
       "default": "senha",
       "required": true
+    },
+    {
+      "type": "text",
+      "label": "container_name",
+      "hint": "Custom Docker container name. Default: technitium-dns (if left blank, falls back to technitium-dns).",
+      "placeholder": "technitium-dns",
+      "regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]+$",
+      "pattern_error": "Must start with a letter or number and contain at least 2 characters (letters, numbers, '.', '_' or '-').",
+      "env_variable": "CONTAINER_NAME",
+      "default": "technitium-dns",
+      "required": false
     }
   ]
 }

@@ -19,10 +19,10 @@ Tracker:
 - REG-012: Database services must provide healthcheck to prevent startup races
 - REG-013: No personal identifiable information, real personal wallets or personal passwords exposed
 - REG-014: All apps must have metadata/logo.jpg in JPEG format for proper Runtipi catalog display
-- REG-015: Technitium has strictly 3 variables without selection lists (domain=technitium-dns, recursion=Allow, password=senha)
+- REG-015: Technitium has strictly 3 container env vars (plus optional CONTAINER_NAME) without selection lists or dynamic slots
 - REG-016: Spiral Pool must use standard Runtipi categories (utilities) avoiding store rejection
 - REG-017: Technitium logo must be the official Wikimedia image converted to 512x512 JPEG
-- REG-018: Telegram Bot API must require API ID/Hash, exclude TZ from form_fields, and preserve defaults
+- REG-018: Telegram Bot API must require API ID/Hash, exclude TZ from form_fields, and preserve defaults (plus optional CONTAINER_NAME)
 - REG-019: Telegram Bot API must map ${APP_PORT}:2627 matching internal_port 2627 to prevent duplicate port binding
 - REG-020: CI workflow setup-python pip cache must reference an existing dependency file (requirements-dev.txt)
 - REG-021: Email OAuth2 Proxy UI must use ROOT_FOLDER_HOST (never RUNTIPI_USER_CONFIG_PATH) for /config and /compose mounts and GHCR image
@@ -34,6 +34,7 @@ Tracker:
 - REG-027: Browserless must pin an explicit release tag (never :latest) matching config.json version and pre-select chrome
 - REG-028: Browserless optional env vars and SHM_SIZE must have no forced defaults and use pass-through syntax when unset
 - REG-029: All apps must use English UI metadata/hints/descriptions, clean labels (shm_size), and example-free placeholders
+- REG-030: Every service across all apps must expose an optional pre-filled container_name variable with safe Compose fallback
 """
 
 import re
@@ -198,11 +199,11 @@ def test_reg_014_no_legacy_png_logos_and_jpeg_strictly_required(apps_dir, app_id
             )
 
 def test_reg_015_technitium_has_strictly_three_env_vars_and_no_selection_lists(get_app_config, get_app_compose):
-    """REG-015: Technitium must use strictly 3 environment variables with no selection list or dynamic slots."""
+    """REG-015: Technitium must keep strictly 3 container environment variables (plus optional CONTAINER_NAME) with no selection lists or dynamic slots."""
     config = get_app_config("technitium")
     form_fields = config.get("form_fields", [])
-    assert len(form_fields) == 3, (
-        f"[REG-015] Regression: Technitium must have strictly 3 form fields, found {len(form_fields)}"
+    assert len(form_fields) == 4, (
+        f"[REG-015] Regression: Technitium must have strictly 4 form fields (3 env vars + CONTAINER_NAME), found {len(form_fields)}"
     )
 
     field_map = {f["env_variable"]: f for f in form_fields}
@@ -210,16 +211,19 @@ def test_reg_015_technitium_has_strictly_three_env_vars_and_no_selection_lists(g
         "DNS_SERVER_DOMAIN",
         "DNS_SERVER_RECURSION",
         "DNS_SERVER_ADMIN_PASSWORD",
+        "CONTAINER_NAME",
     }, f"[REG-015] Regression: Unexpected form fields in Technitium: {list(field_map.keys())}"
 
     assert field_map["DNS_SERVER_DOMAIN"]["default"] == "technitium-dns"
     assert field_map["DNS_SERVER_RECURSION"]["default"] == "Allow"
     assert field_map["DNS_SERVER_ADMIN_PASSWORD"]["default"] == "senha"
+    assert field_map["CONTAINER_NAME"]["required"] is False
+    assert field_map["CONTAINER_NAME"]["default"] == "technitium-dns"
 
     compose = get_app_compose("technitium")
     assert "technitium-dns" in compose["services"]
     svc = compose["services"]["technitium-dns"]
-    assert svc.get("container_name") == "technitium-dns"
+    assert svc.get("container_name") == "${CONTAINER_NAME:-technitium-dns}"
     assert svc.get("image") == "technitium/dns-server:latest"
     assert svc.get("restart") == "unless-stopped"
 
@@ -296,6 +300,7 @@ def test_reg_018_telegram_bot_api_env_vars_and_defaults(get_app_config, get_app_
         "TELEGRAM_HTTP_PORT",
         "TELEGRAM_STAT",
         "TELEGRAM_VERBOSITY",
+        "CONTAINER_NAME",
     }
 
     assert field_map["TELEGRAM_API_ID"].get("required") is True
@@ -304,6 +309,8 @@ def test_reg_018_telegram_bot_api_env_vars_and_defaults(get_app_config, get_app_
     assert field_map["TELEGRAM_HTTP_PORT"].get("default") == 2627
     assert field_map["TELEGRAM_STAT"].get("default") == "1"
     assert field_map["TELEGRAM_VERBOSITY"].get("default") == 0
+    assert field_map["CONTAINER_NAME"].get("required") is False
+    assert field_map["CONTAINER_NAME"].get("default") == "telegram-bot-api"
 
     compose = get_app_compose("telegram-bot-api")
     env = compose["services"]["telegram-bot-api"].get("environment", {})
@@ -560,6 +567,46 @@ def test_reg_029_all_apps_english_clean_labels_and_placeholders(apps_dir, app_id
         if app_id == "browserless":
             assert fields_by_env["SHM_SIZE"]["label"] == "shm_size", (
                 "[REG-029] Browserless SHM_SIZE label must be cleanly 'shm_size'"
+            )
+
+
+def test_reg_030_all_services_configure_optional_container_name_with_fallback(app_ids, get_app_config, get_app_compose):
+    """[REG-030] Every compose service across all apps must use ${...:-default} container_name
+    mapped to an optional pre-filled form_field so blank inputs safely fall back instead of
+    producing an invalid empty string container_name in Compose schema validation."""
+    cname_pattern = re.compile(r"^\$\{([A-Z0-9_]*CONTAINER_NAME):-([a-zA-Z0-9][a-zA-Z0-9_.-]+)\}$")
+
+    for app_id in app_ids:
+        cfg = get_app_config(app_id)
+        fields = {f["env_variable"]: f for f in cfg.get("form_fields", [])}
+        compose = get_app_compose(app_id)
+        seen_defaults = set()
+
+        for svc_name, svc_def in compose.get("services", {}).items():
+            raw_cname = str(svc_def.get("container_name", ""))
+            m = cname_pattern.match(raw_cname)
+            assert m, (
+                f"[REG-030] {app_id}.{svc_name} container_name must use '${{...CONTAINER_NAME:-default}}' fallback, got {raw_cname!r}"
+            )
+            env_var, fallback_name = m.group(1), m.group(2)
+            assert fallback_name not in seen_defaults, (
+                f"[REG-030] Duplicate default container_name {fallback_name!r} in {app_id}"
+            )
+            seen_defaults.add(fallback_name)
+
+            assert env_var in fields, (
+                f"[REG-030] {app_id} missing form_field '{env_var}' referenced by {svc_name}.container_name"
+            )
+            field = fields[env_var]
+            assert field.get("required") is False, f"[REG-030] {app_id}.{env_var} must be optional"
+            assert field.get("default") == fallback_name, (
+                f"[REG-030] {app_id}.{env_var} default must match compose fallback {fallback_name!r}"
+            )
+            assert field.get("placeholder") == fallback_name, (
+                f"[REG-030] {app_id}.{env_var} placeholder must match {fallback_name!r}"
+            )
+            assert field.get("regex") == "^[a-zA-Z0-9][a-zA-Z0-9_.-]+$", (
+                f"[REG-030] {app_id}.{env_var} must enforce Compose container_name regex when non-empty"
             )
 
 

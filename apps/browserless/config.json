@@ -33,6 +33,17 @@
     },
     {
       "type": "text",
+      "label": "container_name",
+      "hint": "Custom Docker container name. Default: browserless (if left blank, falls back to browserless).",
+      "placeholder": "browserless",
+      "regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]+$",
+      "pattern_error": "Must start with a letter or number and contain at least 2 characters (letters, numbers, '.', '_' or '-').",
+      "env_variable": "CONTAINER_NAME",
+      "default": "browserless",
+      "required": false
+    },
+    {
+      "type": "text",
       "label": "shm_size",
       "hint": "Shared memory (/dev/shm) size (e.g. 2gb). Leave blank to use Docker's native default (64m), equivalent to omitting shm_size.",
       "placeholder": "2gb",

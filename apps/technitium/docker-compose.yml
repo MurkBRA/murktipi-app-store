@@ -3,7 +3,7 @@ x-runtipi:
 
 services:
   technitium-dns:
-    container_name: "technitium-dns"
+    container_name: "${CONTAINER_NAME:-technitium-dns}"
     image: "technitium/dns-server:latest"
     restart: "unless-stopped"
     hostname: ${DNS_SERVER_DOMAIN:-technitium-dns}

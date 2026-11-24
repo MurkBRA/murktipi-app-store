@@ -5,8 +5,8 @@ def test_technitium_config_has_strictly_3_variables(get_app_config):
     config = get_app_config("technitium")
     form_fields = config.get("form_fields", [])
 
-    # Must contain strictly the 3 variables requested by the user
-    assert len(form_fields) == 3, f"Technitium must have strictly 3 form_fields, found {len(form_fields)}"
+    # Must contain strictly the 3 environment variables + optional CONTAINER_NAME
+    assert len(form_fields) == 4, f"Technitium must have 4 form_fields (3 env vars + CONTAINER_NAME), found {len(form_fields)}"
     fields_by_var = {f["env_variable"]: f for f in form_fields}
 
     assert "DNS_SERVER_DOMAIN" in fields_by_var
@@ -18,6 +18,9 @@ def test_technitium_config_has_strictly_3_variables(get_app_config):
     assert "DNS_SERVER_ADMIN_PASSWORD" in fields_by_var
     assert fields_by_var["DNS_SERVER_ADMIN_PASSWORD"]["default"] == "senha"
 
+    assert fields_by_var["CONTAINER_NAME"]["required"] is False
+    assert fields_by_var["CONTAINER_NAME"]["default"] == "technitium-dns"
+
 def test_technitium_compose_structure(get_app_compose):
     compose = get_app_compose("technitium")
     services = compose["services"]
@@ -27,7 +30,7 @@ def test_technitium_compose_structure(get_app_compose):
     service = services["technitium-dns"]
 
     # Check container_name, image, restart
-    assert service.get("container_name") == "technitium-dns"
+    assert service.get("container_name") == "${CONTAINER_NAME:-technitium-dns}"
     assert service.get("image") == "technitium/dns-server:latest"
     assert service.get("restart") == "unless-stopped"
 

@@ -215,6 +215,39 @@
       "env_variable": "DB_PASSWORD",
       "default": "spiraldbpassword1234",
       "required": true
+    },
+    {
+      "type": "text",
+      "label": "dashboard container_name",
+      "hint": "Custom Docker container name for the dashboard service. Default: spiral-pool-dashboard (if left blank, falls back to spiral-pool-dashboard).",
+      "placeholder": "spiral-pool-dashboard",
+      "regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]+$",
+      "pattern_error": "Must start with a letter or number and contain at least 2 characters (letters, numbers, '.', '_' or '-').",
+      "env_variable": "DASHBOARD_CONTAINER_NAME",
+      "default": "spiral-pool-dashboard",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "stratum container_name",
+      "hint": "Custom Docker container name for the stratum service. Default: spiral-pool-stratum (if left blank, falls back to spiral-pool-stratum).",
+      "placeholder": "spiral-pool-stratum",
+      "regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]+$",
+      "pattern_error": "Must start with a letter or number and contain at least 2 characters (letters, numbers, '.', '_' or '-').",
+      "env_variable": "STRATUM_CONTAINER_NAME",
+      "default": "spiral-pool-stratum",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "postgres container_name",
+      "hint": "Custom Docker container name for the postgres service. Default: spiral-pool-postgres (if left blank, falls back to spiral-pool-postgres).",
+      "placeholder": "spiral-pool-postgres",
+      "regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]+$",
+      "pattern_error": "Must start with a letter or number and contain at least 2 characters (letters, numbers, '.', '_' or '-').",
+      "env_variable": "POSTGRES_CONTAINER_NAME",
+      "default": "spiral-pool-postgres",
+      "required": false
     }
   ]
 }

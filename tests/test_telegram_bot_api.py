@@ -10,8 +10,8 @@ def test_telegram_bot_api_config_fields_and_defaults(get_app_config):
     assert "development" in config["categories"]
 
     form_fields = config.get("form_fields", [])
-    assert len(form_fields) == 6, (
-        f"Expected strictly 6 install form fields (excluding TZ), found {len(form_fields)}"
+    assert len(form_fields) == 7, (
+        f"Expected strictly 7 install form fields (6 env vars + optional CONTAINER_NAME, excluding TZ), found {len(form_fields)}"
     )
 
     fields_by_var = {f["env_variable"]: f for f in form_fields}
@@ -24,6 +24,7 @@ def test_telegram_bot_api_config_fields_and_defaults(get_app_config):
         "TELEGRAM_HTTP_PORT",
         "TELEGRAM_STAT",
         "TELEGRAM_VERBOSITY",
+        "CONTAINER_NAME",
     }
 
     # Mandatory client credentials
@@ -47,6 +48,9 @@ def test_telegram_bot_api_config_fields_and_defaults(get_app_config):
     assert fields_by_var["TELEGRAM_VERBOSITY"]["required"] is False
     assert fields_by_var["TELEGRAM_VERBOSITY"]["default"] == 0
 
+    assert fields_by_var["CONTAINER_NAME"]["required"] is False
+    assert fields_by_var["CONTAINER_NAME"]["default"] == "telegram-bot-api"
+
 
 def test_telegram_bot_api_compose_structure(get_app_compose):
     compose = get_app_compose("telegram-bot-api")
@@ -56,7 +60,7 @@ def test_telegram_bot_api_compose_structure(get_app_compose):
     svc = services["telegram-bot-api"]
 
     assert svc.get("image") == "aiogram/telegram-bot-api:latest"
-    assert svc.get("container_name") == "telegram-bot-api"
+    assert svc.get("container_name") == "${CONTAINER_NAME:-telegram-bot-api}"
     assert svc.get("restart") == "unless-stopped"
 
     env = svc.get("environment", {})
