@@ -1,0 +1,29 @@
+x-runtipi:
+  schema_version: 2
+
+services:
+  browserless:
+    image: ghcr.io/browserless/${BROWSERLESS_IMAGE:-chrome}:v2.64.3
+    container_name: browserless
+    restart: unless-stopped
+    shm_size: "${SHM_SIZE:-64m}"
+    ports:
+      - "${APP_PORT}:3000"
+    environment:
+      # REMOVIDO: DEBUG=browserless* (remover reduz drasticamente o uso de CPU)
+      - MAX_CONCURRENT_SESSIONS
+      - CONNECTION_TIMEOUT
+      - PREBOOT_CHROME
+      - CHROME_REFRESH_TIME
+      - ENABLE_CORS
+      - DEMOING
+      - TZ=${TZ}
+    networks:
+      - tipi_main_network
+    x-runtipi:
+      is_main: true
+      internal_port: 3000
+
+networks:
+  tipi_main_network:
+    external: true

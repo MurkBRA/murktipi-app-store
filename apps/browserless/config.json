@@ -1,0 +1,97 @@
+{
+  "$schema": "https://raw.githubusercontent.com/runtipi/runtipi-docs/main/src/content/docs/reference/app-config.schema.json",
+  "id": "browserless",
+  "name": "Browserless",
+  "port": 9222,
+  "available": true,
+  "categories": ["development", "automation", "utilities"],
+  "description": "Self-hosted headless browser automation server (Puppeteer, Playwright, and CDP) supporting Chrome, Chromium, Firefox, WebKit, and Multi-engine images.",
+  "short_desc": "Headless browser automation server (Chrome, Chromium, Firefox, WebKit, Multi)",
+  "author": "Browserless",
+  "tipi_version": 1,
+  "version": "v2.64.3",
+  "source": "https://github.com/browserless/browserless",
+  "website": "https://www.browserless.io",
+  "exposable": true,
+  "dynamic_config": true,
+  "supported_architectures": ["amd64", "arm64"],
+  "form_fields": [
+    {
+      "type": "text",
+      "label": "Imagem Base (Navegador)",
+      "hint": "Escolha qual imagem oficial do Browserless v2 executar (Edge e SDK não possuem pacote público no GHCR). Padrão: chrome.",
+      "env_variable": "BROWSERLESS_IMAGE",
+      "default": "chrome",
+      "required": true,
+      "options": [
+        { "label": "Chrome (Padrão)", "value": "chrome" },
+        { "label": "Chromium", "value": "chromium" },
+        { "label": "Firefox", "value": "firefox" },
+        { "label": "WebKit (Safari Engine)", "value": "webkit" },
+        { "label": "Multi (Chromium + Firefox + WebKit)", "value": "multi" }
+      ]
+    },
+    {
+      "type": "text",
+      "label": "Memória Compartilhada (shm_size)",
+      "hint": "Tamanho de /dev/shm (ex: 2gb). Se deixar em branco, o container usa o padrão nativo do Docker (64m), equivalente a não definir shm_size.",
+      "placeholder": "Ex: 2gb (vazio = padrão Docker 64m)",
+      "env_variable": "SHM_SIZE",
+      "required": false
+    },
+    {
+      "type": "number",
+      "label": "Sessões Simultâneas (MAX_CONCURRENT_SESSIONS)",
+      "hint": "Máximo de sessões simultâneas no navegador (ex: 10). Se deixar em branco, a variável não é definida no container.",
+      "placeholder": "Ex: 10 (vazio = não definir)",
+      "env_variable": "MAX_CONCURRENT_SESSIONS",
+      "required": false
+    },
+    {
+      "type": "number",
+      "label": "Timeout de Conexão em ms (CONNECTION_TIMEOUT)",
+      "hint": "Tempo limite máximo por sessão em milissegundos (ex: 60000). Se deixar em branco, a variável não é definida no container.",
+      "placeholder": "Ex: 60000 (vazio = não definir)",
+      "env_variable": "CONNECTION_TIMEOUT",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "Preboot Chrome (PREBOOT_CHROME)",
+      "hint": "Mantém instâncias pré-iniciadas (true ou false). Se deixar em branco, a variável não é definida no container.",
+      "placeholder": "Ex: true ou false (vazio = não definir)",
+      "regex": "^(true|false)$",
+      "pattern_error": "Informe 'true' ou 'false' (ou deixe em branco).",
+      "env_variable": "PREBOOT_CHROME",
+      "required": false
+    },
+    {
+      "type": "number",
+      "label": "Tempo de Refresh em ms (CHROME_REFRESH_TIME)",
+      "hint": "Intervalo em ms para reiniciar processos em espera (ex: 3600000). Se deixar em branco, a variável não é definida no container.",
+      "placeholder": "Ex: 3600000 (vazio = não definir)",
+      "env_variable": "CHROME_REFRESH_TIME",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "Habilitar CORS (ENABLE_CORS)",
+      "hint": "Ativa cabeçalhos CORS nas respostas HTTP (true ou false). Se deixar em branco, a variável não é definida no container.",
+      "placeholder": "Ex: true ou false (vazio = não definir)",
+      "regex": "^(true|false)$",
+      "pattern_error": "Informe 'true' ou 'false' (ou deixe em branco).",
+      "env_variable": "ENABLE_CORS",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "Modo Demo (DEMOING)",
+      "hint": "Habilita/desabilita o modo demonstração (false ou true). Se deixar em branco, a variável não é definida no container.",
+      "placeholder": "Ex: false ou true (vazio = não definir)",
+      "regex": "^(true|false)$",
+      "pattern_error": "Informe 'true' ou 'false' (ou deixe em branco).",
+      "env_variable": "DEMOING",
+      "required": false
+    }
+  ]
+}

@@ -31,6 +31,8 @@ Tracker:
 - REG-024: Email OAuth2 Proxy UI ports-modal footer must keep structured 3-column grid (.ports-actions-grid) and all action IDs
 - REG-025: Email OAuth2 Proxy UI must default to English, support browser auto-PT + sidebar selector, and keep EN/PT keys in sync
 - REG-026: Email OAuth2 Proxy UI must pin a semantic version tag matching config.json version (never :latest) with tipi_version >= 2
+- REG-027: Browserless must pin an explicit release tag (never :latest) matching config.json version and pre-select chrome
+- REG-028: Browserless optional env vars and SHM_SIZE must have no forced defaults and use pass-through syntax when unset
 """
 
 import re
@@ -459,6 +461,49 @@ def test_reg_026_email_oauth2_proxy_ui_versioned_image_tag(repo_root, get_app_co
         f"[REG-026] Compose image '{actual_image}' must match config.json version '{expected_image}'"
     )
     assert "steps.appver.outputs.version" in wf_text
+
+
+def test_reg_027_browserless_pinned_version_and_chrome_default(get_app_config, get_app_compose):
+    """REG-027: Browserless must use an explicit version tag (not :latest) matching
+    config.json version so Runtipi updates work, with chrome pre-selected."""
+    cfg = get_app_config("browserless")
+    compose = get_app_compose("browserless")
+
+    version = str(cfg.get("version", ""))
+    assert version and version != "latest", "[REG-027] Browserless version must not be 'latest'"
+    assert re.match(r"^v\d+\.\d+\.\d+$", version), f"[REG-027] Expected vX.Y.Z tag, got '{version}'"
+
+    fields = {f["env_variable"]: f for f in cfg.get("form_fields", [])}
+    assert fields["BROWSERLESS_IMAGE"]["default"] == "chrome"
+
+    image = compose["services"]["browserless"].get("image", "")
+    assert image == f"ghcr.io/browserless/${{BROWSERLESS_IMAGE:-chrome}}:{version}"
+
+
+def test_reg_028_browserless_optional_vars_omitted_when_blank(get_app_config, get_app_compose):
+    """REG-028: Optional Browserless fields must omit 'default' in config.json and use
+    pass-through entries (no '=') in compose so empty inputs are not injected into the container."""
+    cfg = get_app_config("browserless")
+    fields = {f["env_variable"]: f for f in cfg.get("form_fields", [])}
+    compose = get_app_compose("browserless")
+    svc = compose["services"]["browserless"]
+
+    optional_env_vars = (
+        "MAX_CONCURRENT_SESSIONS",
+        "CONNECTION_TIMEOUT",
+        "PREBOOT_CHROME",
+        "CHROME_REFRESH_TIME",
+        "ENABLE_CORS",
+        "DEMOING",
+    )
+    env_entries = [str(e) for e in svc.get("environment", [])]
+    for var in optional_env_vars:
+        assert "default" not in fields[var], f"[REG-028] {var} must not define a default"
+        assert var in env_entries, f"[REG-028] {var} must use pass-through syntax"
+
+    assert "default" not in fields["SHM_SIZE"], "[REG-028] SHM_SIZE must not define a default"
+    assert svc.get("shm_size") == "${SHM_SIZE:-64m}"
+
 
 
 

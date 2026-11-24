@@ -1,7 +1,7 @@
 # MurkTipi App Store 🏪
 
 [![CI & Anti-Regression Tests](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml/badge.svg)](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-47%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
+[![Tests Passing](https://img.shields.io/badge/tests-52%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
 [![Runtipi Schema](https://img.shields.io/badge/runtipi%20schema-v2-blue.svg)](https://runtipi.io)
 
 Repositório customizado de aplicativos (App Store de Usuário) para o **[Runtipi](https://runtipi.io)**, mantido por **[@murkbra](https://github.com/murkbra)**.
@@ -63,6 +63,12 @@ Painel web leve em Go ([`packages/email-oauth2-proxy-ui`](packages/email-oauth2-
 - **Funcionalidades:** Assistente OAuth 1-clique, monitor de pedidos OAuth externos, probes IMAP/SMTP/POP, geração de CA/certificados TLS, gerenciador de portas Docker/Compose (Modos A e B), editor do `emailproxy.config`, Debug ao vivo (`SIGUSR1`) e streaming de logs.
 - **Autenticação Opcional:** Login por sessão configurável via `ADMIN_USER` e `ADMIN_PASSWORD`.
 
+### 5. 🌐 [Browserless](apps/browserless)
+Servidor de navegadores headless (**Browserless v2** `v2.64.3`) para automação via Puppeteer, Playwright e CDP na porta `9222` (`${APP_PORT}:3000`).
+
+- **Escolha da Imagem Base (`BROWSERLESS_IMAGE`):** Seleção no instalador entre `chrome` *(padrão)*, `chromium`, `firefox`, `webkit` e `multi` (`ghcr.io/browserless/<imagem>:v2.64.3`, com tag versionada para updates pelo Runtipi).
+- **Variáveis e `shm_size` Opcionais:** `SHM_SIZE`, `MAX_CONCURRENT_SESSIONS`, `CONNECTION_TIMEOUT`, `PREBOOT_CHROME`, `CHROME_REFRESH_TIME`, `ENABLE_CORS` e `DEMOING` sem valor forçado (se deixadas em branco, não são injetadas no container / `shm_size` mantém o padrão nativo `64m` do Docker).
+
 ---
 
 ## 🧪 Política de Testes & Anti-Regressão
@@ -94,7 +100,8 @@ Este repositório possui uma suíte rigorosa de testes automatizados e uma polí
 - `tests/test_technitium.py`: Testes específicos do Technitium (validação das 3 variáveis essenciais, portas DNS UDP/TCP 53, console 5380 e formato `logo.jpg`).
 - `tests/test_telegram_bot_api.py`: Testes específicos do Telegram Bot API (obrigatoriedade de API ID/Hash, exclusão de `TZ` do formulário, preservação dos padrões originais, mapeamento `${APP_PORT}:2627` e `logo.jpg`).
 - `tests/test_email_oauth2_proxy_ui.py`: Testes específicos do Email OAuth2 Proxy UI (integração `ROOT_FOLDER_HOST`, `PROXY_STORE_ID`, imagem GHCR, Dockerfile Go 1.27 Alpine e `logo.jpg`).
-- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-026`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
+- `tests/test_browserless.py`: Testes específicos do Browserless (versão `v2.64.3` fixada, seleção de imagem com `chrome` padrão, variáveis/shm_size opcionais sem default forçado e `logo.jpg`).
+- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-028`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
 - `.github/workflows/ci.yml`: Automação contínua no GitHub Actions disparada a cada push e pull request.
 
 ---
