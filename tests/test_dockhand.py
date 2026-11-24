@@ -97,4 +97,8 @@ def test_dockhand_logo_is_square_jpg(apps_dir):
     with Image.open(logo_path) as img:
         assert img.format == "JPEG"
         w, h = img.size
-        assert w == h and w >= 512
+        assert w == h == 1024
+        r, g, b = img.getpixel((10, 10))
+        assert 235 <= r <= 250 and 235 <= g <= 250 and 235 <= b <= 250
+        cr, cg, cb = img.getpixel((512, 420))
+        assert cr > 150 and cg < 120 and cb < 80
