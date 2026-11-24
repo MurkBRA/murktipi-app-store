@@ -17,20 +17,20 @@
   "form_fields": [
     {
       "type": "text",
-      "label": "Modo de Operação do Pool",
-      "hint": "Escolha 'single' para minerar uma única moeda dedicada ou 'multi' para minerar várias moedas simultaneamente.",
+      "label": "Pool Mode",
+      "hint": "Choose 'single' to mine one dedicated cryptocurrency or 'multi' to mine multiple coins simultaneously.",
       "env_variable": "POOL_MODE",
       "default": "single",
       "required": true,
       "options": [
-        { "label": "Single Coin (Moeda Única)", "value": "single" },
-        { "label": "Multi Coin (Múltiplas Moedas)", "value": "multi" }
+        { "label": "Single Coin", "value": "single" },
+        { "label": "Multi Coin", "value": "multi" }
       ]
     },
     {
       "type": "text",
-      "label": "Criptomoeda Primária (Modo Single)",
-      "hint": "Moeda minerada no modo single-coin.",
+      "label": "Primary Coin",
+      "hint": "Cryptocurrency mined when operating in single-coin mode.",
       "env_variable": "POOL_COIN",
       "default": "bitcoin",
       "required": true,
@@ -49,169 +49,169 @@
     },
     {
       "type": "text",
-      "label": "ID do Pool",
-      "hint": "Identificador único do pool para métricas e dashboard.",
+      "label": "Pool ID",
+      "hint": "Unique pool identifier used for metrics and dashboard reporting.",
       "env_variable": "POOL_ID",
       "default": "btc_sha256_1",
       "required": true
     },
     {
       "type": "text",
-      "label": "Endereço da Carteira Primária",
-      "hint": "Endereço da moeda primária para receber as recompensas de bloco geradas.",
-      "placeholder": "Ex: bc1q... ou dgb1q...",
+      "label": "Primary Wallet Address",
+      "hint": "Primary coin wallet address for receiving block rewards (for example, bc1q... or dgb1q...).",
+      "placeholder": "bc1q...",
       "env_variable": "POOL_ADDRESS",
       "default": "",
       "required": true
     },
     {
       "type": "text",
-      "label": "Mensagem do Bloco (Coinbase Text)",
-      "hint": "Texto gravado na transação coinbase do bloco minerado.",
+      "label": "Coinbase Text",
+      "hint": "Custom text written into the coinbase transaction of mined blocks.",
       "env_variable": "COINBASE_TEXT",
       "default": "Mined by Spiral Pool",
       "required": false
     },
     {
       "type": "number",
-      "label": "Porta Stratum V1 Primária",
-      "hint": "Porta de escuta Stratum V1 (ex: BTC 4333, DGB 3333, LTC 7333, DOGE 8335).",
+      "label": "Primary Stratum V1 Port",
+      "hint": "Stratum V1 listening port (for example: BTC 4333, DGB 3333, LTC 7333, DOGE 8335).",
       "env_variable": "STRATUM_PORT",
       "default": 4333,
       "required": true
     },
     {
       "type": "boolean",
-      "label": "Habilitar Stratum V2 (Noise Encryption)",
-      "hint": "Ativa o protocolo Stratum V2 com criptografia de ponta a ponta.",
+      "label": "Enable Stratum V2",
+      "hint": "Enables the Stratum V2 protocol with Noise end-to-end encryption.",
       "env_variable": "STRATUM_V2_ENABLED",
       "default": false,
       "required": false
     },
     {
       "type": "text",
-      "label": "Host do Nó Blockchain (Daemon Host)",
-      "hint": "Hostname ou IP do nó blockchain (ex: bitcoind ou IP na rede local).",
+      "label": "Daemon Host",
+      "hint": "Hostname or IP address of the blockchain node (for example, bitcoind or a local network IP).",
       "env_variable": "DAEMON_HOST",
       "default": "bitcoind",
       "required": true
     },
     {
       "type": "number",
-      "label": "Porta RPC do Nó",
-      "hint": "Porta RPC do nó (ex: BTC 8332, DGB 14022, LTC 9332).",
+      "label": "Daemon RPC Port",
+      "hint": "Blockchain node RPC port (for example: BTC 8332, DGB 14022, LTC 9332).",
       "env_variable": "DAEMON_RPC_PORT",
       "default": 8332,
       "required": true
     },
     {
       "type": "number",
-      "label": "Porta ZMQ do Nó",
-      "hint": "Porta ZMQ de notificações de bloco do nó (ex: BTC 28332, DGB 28532, LTC 28933).",
+      "label": "Daemon ZMQ Port",
+      "hint": "Blockchain node ZMQ block notification port (for example: BTC 28332, DGB 28532, LTC 28933).",
       "env_variable": "DAEMON_ZMQ_PORT",
       "default": 28332,
       "required": true
     },
     {
       "type": "text",
-      "label": "Usuário RPC do Nó",
-      "hint": "Usuário RPC configurado no nó (opcional caso utilize autenticação cookie).",
+      "label": "Daemon RPC Username",
+      "hint": "RPC username configured on the blockchain node (optional if using cookie authentication).",
       "env_variable": "DAEMON_RPC_USER",
       "default": "",
       "required": false
     },
     {
       "type": "password",
-      "label": "Senha RPC do Nó",
-      "hint": "Senha RPC configurada no nó (opcional caso utilize autenticação cookie).",
+      "label": "Daemon RPC Password",
+      "hint": "RPC password configured on the blockchain node (optional if using cookie authentication).",
       "env_variable": "DAEMON_RPC_PASSWORD",
       "default": "",
       "required": false
     },
     {
       "type": "boolean",
-      "label": "Modo Multi: Habilitar Bitcoin (BTC)",
-      "hint": "Habilita a mineração de Bitcoin no modo multi-coin.",
+      "label": "Multi Mode: Enable Bitcoin",
+      "hint": "Enables Bitcoin (BTC) mining when operating in multi-coin mode.",
       "env_variable": "ENABLE_BTC",
       "default": false,
       "required": false
     },
     {
       "type": "text",
-      "label": "Modo Multi: Carteira Bitcoin (BTC)",
-      "hint": "Endereço de carteira Bitcoin caso ENABLE_BTC esteja ativo.",
+      "label": "Multi Mode: Bitcoin Address",
+      "hint": "Bitcoin wallet address used when ENABLE_BTC is enabled.",
       "env_variable": "BTC_POOL_ADDRESS",
       "default": "",
       "required": false
     },
     {
       "type": "boolean",
-      "label": "Modo Multi: Habilitar DigiByte (DGB)",
-      "hint": "Habilita a mineração de DigiByte no modo multi-coin.",
+      "label": "Multi Mode: Enable DigiByte",
+      "hint": "Enables DigiByte (DGB) mining when operating in multi-coin mode.",
       "env_variable": "ENABLE_DGB",
       "default": false,
       "required": false
     },
     {
       "type": "text",
-      "label": "Modo Multi: Carteira DigiByte (DGB)",
-      "hint": "Endereço de carteira DigiByte caso ENABLE_DGB esteja ativo.",
+      "label": "Multi Mode: DigiByte Address",
+      "hint": "DigiByte wallet address used when ENABLE_DGB is enabled.",
       "env_variable": "DGB_POOL_ADDRESS",
       "default": "",
       "required": false
     },
     {
       "type": "boolean",
-      "label": "Modo Multi: Habilitar Litecoin (LTC)",
-      "hint": "Habilita a mineração de Litecoin (Scrypt) no modo multi-coin.",
+      "label": "Multi Mode: Enable Litecoin",
+      "hint": "Enables Litecoin (Scrypt) mining when operating in multi-coin mode.",
       "env_variable": "ENABLE_LTC",
       "default": false,
       "required": false
     },
     {
       "type": "text",
-      "label": "Modo Multi: Carteira Litecoin (LTC)",
-      "hint": "Endereço de carteira Litecoin caso ENABLE_LTC esteja ativo.",
+      "label": "Multi Mode: Litecoin Address",
+      "hint": "Litecoin wallet address used when ENABLE_LTC is enabled.",
       "env_variable": "LTC_POOL_ADDRESS",
       "default": "",
       "required": false
     },
     {
       "type": "boolean",
-      "label": "Modo Multi: Habilitar Dogecoin (DOGE)",
-      "hint": "Habilita a mineração de Dogecoin (Scrypt) no modo multi-coin.",
+      "label": "Multi Mode: Enable Dogecoin",
+      "hint": "Enables Dogecoin (Scrypt) mining when operating in multi-coin mode.",
       "env_variable": "ENABLE_DOGE",
       "default": false,
       "required": false
     },
     {
       "type": "text",
-      "label": "Modo Multi: Carteira Dogecoin (DOGE)",
-      "hint": "Endereço de carteira Dogecoin caso ENABLE_DOGE esteja ativo.",
+      "label": "Multi Mode: Dogecoin Address",
+      "hint": "Dogecoin wallet address used when ENABLE_DOGE is enabled.",
       "env_variable": "DOGE_POOL_ADDRESS",
       "default": "",
       "required": false
     },
     {
       "type": "boolean",
-      "label": "Habilitar Merge Mining",
-      "hint": "Permite minerar moedas secundárias simultaneamente (ex: LTC+DOGE ou BTC+NMC).",
+      "label": "Enable Merge Mining",
+      "hint": "Enables simultaneous auxiliary coin merge mining (for example: LTC+DOGE or BTC+NMC).",
       "env_variable": "MERGE_MINING_ENABLED",
       "default": false,
       "required": false
     },
     {
       "type": "password",
-      "label": "Senha de Administrador do Dashboard",
-      "hint": "Senha de acesso ao painel de controle web do pool.",
+      "label": "Dashboard Admin Password",
+      "hint": "Password for accessing the pool web control dashboard.",
       "env_variable": "DASHBOARD_ADMIN_PASSWORD",
       "default": "spiraladmin",
       "required": true
     },
     {
       "type": "password",
-      "label": "Senha do Banco de Dados PostgreSQL",
-      "hint": "Senha interna para o PostgreSQL do pool.",
+      "label": "PostgreSQL Database Password",
+      "hint": "Internal PostgreSQL password used by the pool database.",
       "env_variable": "DB_PASSWORD",
       "default": "spiraldbpassword1234",
       "required": true

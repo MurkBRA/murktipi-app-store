@@ -8,7 +8,7 @@ services:
     restart: unless-stopped
     environment:
       TZ: ${TZ}
-      # api ID e HASH aqui é a do cliente não a do bot
+      # Client API ID and Hash obtained from my.telegram.org (not the bot token)
       TELEGRAM_API_ID: ${TELEGRAM_API_ID}
       TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
       TELEGRAM_LOCAL: "${TELEGRAM_LOCAL:-1}"

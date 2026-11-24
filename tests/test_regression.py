@@ -33,6 +33,7 @@ Tracker:
 - REG-026: Email OAuth2 Proxy UI must pin a semantic version tag matching config.json version (never :latest) with tipi_version >= 2
 - REG-027: Browserless must pin an explicit release tag (never :latest) matching config.json version and pre-select chrome
 - REG-028: Browserless optional env vars and SHM_SIZE must have no forced defaults and use pass-through syntax when unset
+- REG-029: All apps must use English UI metadata/hints/descriptions, clean labels (shm_size), and example-free placeholders
 """
 
 import re
@@ -503,6 +504,64 @@ def test_reg_028_browserless_optional_vars_omitted_when_blank(get_app_config, ge
 
     assert "default" not in fields["SHM_SIZE"], "[REG-028] SHM_SIZE must not define a default"
     assert svc.get("shm_size") == "${SHM_SIZE:-64m}"
+
+
+def test_reg_029_all_apps_english_clean_labels_and_placeholders(apps_dir, app_ids, get_app_config):
+    """[REG-029] All app metadata, labels, hints, placeholders, descriptions, and compose comments must be English and clean."""
+    import re
+
+    portuguese_chars = re.compile(r"[ãõáéíóúâêôàçÃÕÁÉÍÓÚÂÊÔÀÇ]")
+    portuguese_words = re.compile(
+        r"(?i)\b(configuração|configurações|usuário|senha|padrão|porta|vazio|obrigatório|opcional|habilitar|permitir|negar|mineração|moeda|carteira|deixe|preencha|obtido|memória|compartilhada)\b"
+    )
+    placeholder_prefix = re.compile(r"(?i)^\s*(ex\.?|e\.g\.?)\s*:")
+    placeholder_blank_hint = re.compile(r"(?i)\b(vazio|blank|empty|não definir|not set|omit)\b")
+
+    for app_id in app_ids:
+        config = get_app_config(app_id)
+        ui_texts = [
+            ("description", config.get("description", "")),
+            ("short_desc", config.get("short_desc", "")),
+        ]
+
+        fields_by_env = {}
+        for field in config.get("form_fields", []):
+            env_name = field.get("env_variable", "")
+            fields_by_env[env_name] = field
+            for key in ("label", "hint", "placeholder", "pattern_error"):
+                if key in field:
+                    ui_texts.append((f"{env_name}.{key}", str(field[key])))
+            for idx, opt in enumerate(field.get("options", [])):
+                ui_texts.append((f"{env_name}.options[{idx}].label", str(opt.get("label", ""))))
+
+            placeholder = str(field.get("placeholder", ""))
+            assert not placeholder_prefix.match(placeholder), (
+                f"[REG-029] {app_id}.{env_name} placeholder must not start with 'Ex:' or 'e.g.': {placeholder!r}"
+            )
+            assert not placeholder_blank_hint.search(placeholder), (
+                f"[REG-029] {app_id}.{env_name} placeholder must not mention blank/empty behavior (put that in hint): {placeholder!r}"
+            )
+
+        desc_path = apps_dir / app_id / "metadata" / "description.md"
+        ui_texts.append(("metadata/description.md", desc_path.read_text(encoding="utf-8")))
+
+        compose_path = apps_dir / app_id / "docker-compose.yml"
+        compose_comments = "\n".join(re.findall(r"#.*", compose_path.read_text(encoding="utf-8")))
+        ui_texts.append(("docker-compose.yml comments", compose_comments))
+
+        for loc, text in ui_texts:
+            assert not portuguese_chars.search(text), (
+                f"[REG-029] {app_id} {loc} still contains Portuguese accented/cedilla text: {text!r}"
+            )
+            assert not portuguese_words.search(text), (
+                f"[REG-029] {app_id} {loc} still contains Portuguese terms: {text!r}"
+            )
+
+        if app_id == "browserless":
+            assert fields_by_env["SHM_SIZE"]["label"] == "shm_size", (
+                "[REG-029] Browserless SHM_SIZE label must be cleanly 'shm_size'"
+            )
+
 
 
 

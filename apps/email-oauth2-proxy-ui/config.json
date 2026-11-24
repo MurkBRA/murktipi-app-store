@@ -18,41 +18,40 @@
   "form_fields": [
     {
       "type": "text",
-      "label": "Store Slug do Email OAuth2 Proxy (PROXY_STORE_ID)",
-      "hint": "Subpasta da loja onde o email-oauth2-proxy está instalado dentro de app-data/ e user-config/ (ex: migrated para apps migrados ou runtipi para instalação nova da loja oficial). Padrão: migrated.",
+      "label": "PROXY_STORE_ID",
+      "hint": "Store subfolder where email-oauth2-proxy is installed under app-data/ and user-config/ (e.g. migrated for migrated apps, or runtipi for a fresh official store install). Default: migrated.",
       "env_variable": "PROXY_STORE_ID",
       "default": "migrated",
       "required": true
     },
     {
       "type": "text",
-      "label": "Host / Serviço do Proxy (PROXY_HOST)",
-      "hint": "Hostname ou nome do serviço do Email OAuth2 Proxy na rede Docker do Runtipi (tipi_main_network). Padrão: email-oauth2-proxy.",
+      "label": "PROXY_HOST",
+      "hint": "Hostname or service name of Email OAuth2 Proxy on Runtipi's Docker network (tipi_main_network). Default: email-oauth2-proxy.",
       "env_variable": "PROXY_HOST",
       "default": "email-oauth2-proxy",
       "required": true
     },
     {
       "type": "text",
-      "label": "Nome do Container do Proxy (PROXY_CONTAINER)",
-      "hint": "Nome exato do container Docker do Email OAuth2 Proxy para reiniciar, alternar Debug Mode (SIGUSR1) e gerenciar portas. Padrão: email-oauth2-proxy.",
+      "label": "PROXY_CONTAINER",
+      "hint": "Exact Docker container name of Email OAuth2 Proxy used for restarts, Debug Mode toggle (SIGUSR1), and port management. Default: email-oauth2-proxy.",
       "env_variable": "PROXY_CONTAINER",
       "default": "email-oauth2-proxy",
       "required": false
     },
     {
       "type": "text",
-      "label": "Usuário do Painel (ADMIN_USER)",
-      "hint": "Nome de usuário para login na Web UI (utilizado apenas se ADMIN_PASSWORD estiver preenchida). Padrão: admin.",
+      "label": "ADMIN_USER",
+      "hint": "Username for Web UI login (used only when ADMIN_PASSWORD is set). Default: admin.",
       "env_variable": "ADMIN_USER",
       "default": "admin",
       "required": false
     },
     {
       "type": "password",
-      "label": "Senha do Painel (ADMIN_PASSWORD)",
-      "hint": "Defina uma senha para proteger o painel Web UI com login por sessão. Deixe em branco para manter a autenticação desativada.",
-      "placeholder": "Opcional (em branco = sem login)",
+      "label": "ADMIN_PASSWORD",
+      "hint": "Set a password to protect the Web UI with session login. Leave blank to keep authentication disabled.",
       "env_variable": "ADMIN_PASSWORD",
       "default": "",
       "required": false

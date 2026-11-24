@@ -1,32 +1,32 @@
 # Email OAuth2 Proxy UI
 
-Painel web leve em **Go** (imagem oficial compilada via GitHub Actions em `ghcr.io/murkbra/email-oauth2-proxy-ui`, multi-arch `amd64`/`arm64`) para gerenciar uma instalação existente do **[Email OAuth2 Proxy](https://github.com/simonrob/email-oauth2-proxy)** no seu **Runtipi**.
+Lightweight **Go Web UI** (multi-arch `amd64`/`arm64` image published via GitHub Actions at `ghcr.io/murkbra/email-oauth2-proxy-ui`) to manage an existing **[Email OAuth2 Proxy](https://github.com/simonrob/email-oauth2-proxy)** installation on **Runtipi**.
 
 ---
 
-## Principais Recursos
+## Key Features
 
-- **Assistente OAuth 1-Clique & Monitor Externo:** dispara o login IMAP/TLS direto no proxy e detecta pedidos OAuth pendentes enviados por clientes externos (MailCraft, Thunderbird, impressoras, etc.), com rota automática `/oauth/callback`.
-- **Dashboard & Probes em Tempo Real:** testa as portas IMAP/SMTP/POP configuradas e mostra o status dos tokens salvos no `credstore.config`.
-- **Templates & Fluxos Avançados:** presets prontos para **Outlook / Office 365**, **Gmail**, **Yahoo**, **AOL** e **Fastmail** (Mozilla Thunderbird, FairEmail, GNOME Online Accounts, Mailspring) e suporte a Authorization Code, Device Flow, Client Credentials (CCG), ROPCG, Google Service Account e JWT.
-- **Gerador de Certificado TLS & Download do `ca-cert.crt`:** gera CA local X.509 v3 + certificado com SANs, aplica nos servidores com 1 clique e permite baixar o `ca-cert.crt`.
-- **Gerenciador de Portas Docker & Compose:** verifica conflitos reais no host e no Docker via `/var/run/docker.sock`, suportando edição direta no `docker-compose.yml` do `user-config` do `email-oauth2-proxy` (Modo A) e/ou atualização direta no container (Modo B).
-- **Editor do `emailproxy.config`, Debug ao Vivo (`SIGUSR1`) & Streaming de Logs:** edição estruturada ou raw com backup automático `.bak` e visualização de `/config/emailproxy.log`.
+- **1-Click OAuth Wizard & External Client Monitor:** Triggers IMAP/TLS login directly against the proxy and detects pending OAuth requests from external clients (MailCraft, Thunderbird, printers, etc.) with automatic `/oauth/callback` handling.
+- **Real-Time Dashboard & Port Probes:** Tests configured IMAP/SMTP/POP ports and displays token status stored in `credstore.config`.
+- **Provider Templates & Advanced Flows:** Ready-to-use presets for **Outlook / Office 365**, **Gmail**, **Yahoo**, **AOL**, and **Fastmail** (Mozilla Thunderbird, FairEmail, GNOME Online Accounts, Mailspring) supporting Authorization Code, Device Flow, Client Credentials (CCG), ROPCG, Google Service Account, and JWT certificates.
+- **TLS Certificate Generator & `ca-cert.crt` Download:** Generates a local X.509 v3 CA + SAN server certificate, applies TLS across all servers in 1 click, and provides `ca-cert.crt` download.
+- **Docker & Compose Port Manager:** Checks live host/Docker port availability via `/var/run/docker.sock`, supporting Compose YAML updates in `user-config` (Mode A) and/or live Docker container recreation (Mode B).
+- **INI Config Editor, Live Debug (`SIGUSR1`) & Log Streaming:** Structured and raw editing with automatic `.bak` backups plus live `/config/emailproxy.log` streaming.
 
 ---
 
-## Integração Automática com o Runtipi (`ROOT_FOLDER_HOST`)
+## Automatic Runtipi Integration (`ROOT_FOLDER_HOST`)
 
-No Runtipi v4, a variável interna **`ROOT_FOLDER_HOST`** é injetada automaticamente no `app.env` de todos os aplicativos e aponta para a pasta raiz do Runtipi (onde ficam `app-data/` e `user-config/`). O container monta automaticamente:
+In Runtipi v4, **`ROOT_FOLDER_HOST`** is automatically injected into every app's `app.env` pointing to the Runtipi root directory (containing `app-data/` and `user-config/`). The container automatically mounts:
 
 - **`/config`** ← `${ROOT_FOLDER_HOST}/app-data/${PROXY_STORE_ID:-migrated}/email-oauth2-proxy/data/config`
 - **`/compose`** ← `${ROOT_FOLDER_HOST}/user-config/${PROXY_STORE_ID:-migrated}/email-oauth2-proxy`
-- **`/var/run/docker.sock`** ← Socket Docker do host
+- **`/var/run/docker.sock`** ← Host Docker socket
 
-| Variável | Obrigatória | Padrão | Descrição |
+| Variable | Required | Default | Description |
 | :--- | :---: | :---: | :--- |
-| `PROXY_STORE_ID` | Sim | `migrated` | Subpasta da loja onde o `email-oauth2-proxy` está instalado (`migrated` para apps migrados ou `runtipi` para instalação nova da loja oficial). |
-| `PROXY_HOST` | Sim | `email-oauth2-proxy` | Hostname do container proxy na rede `tipi_main_network`. |
-| `PROXY_CONTAINER` | Não | `email-oauth2-proxy` | Nome exato do container Docker do proxy para reinício e `SIGUSR1`. |
-| `ADMIN_USER` | Não | `admin` | Usuário de acesso ao painel (quando `ADMIN_PASSWORD` estiver definida). |
-| `ADMIN_PASSWORD` | Não | *(vazio)* | Senha do painel Web UI (deixe vazio para acesso sem login). |
+| `PROXY_STORE_ID` | Yes | `migrated` | Store subfolder where `email-oauth2-proxy` is installed (`migrated` for migrated apps or `runtipi` for a fresh official store install). |
+| `PROXY_HOST` | Yes | `email-oauth2-proxy` | Proxy container hostname on `tipi_main_network`. |
+| `PROXY_CONTAINER` | No | `email-oauth2-proxy` | Exact Docker container name for restarts and `SIGUSR1`. |
+| `ADMIN_USER` | No | `admin` | Web UI login username (when `ADMIN_PASSWORD` is set). |
+| `ADMIN_PASSWORD` | No | *(empty)* | Web UI login password (leave blank to disable login). |

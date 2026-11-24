@@ -1,31 +1,31 @@
 # Browserless (Headless Browser Server)
 
-Servidor **Browserless v2** (`v2.64.3`) para automação de navegadores headless via **Puppeteer**, **Playwright** e **Chrome DevTools Protocol (CDP)**, com escolha direta da imagem base no instalador do Runtipi.
+**Browserless v2** (`v2.64.3`) headless browser automation server for **Puppeteer**, **Playwright**, and **Chrome DevTools Protocol (CDP)**, with base browser image selection in the Runtipi installer.
 
 ---
 
-## Imagens Base Disponíveis (`ghcr.io/browserless/*:v2.64.3`)
+## Available Base Images (`ghcr.io/browserless/*:v2.64.3`)
 
-Durante a instalação você pode selecionar qual imagem pública do Browserless deseja rodar (com **`chrome`** pré-selecionado por padrão):
+During installation you can pick which public Browserless image to run (**`chrome`** is pre-selected by default):
 
-- **`chrome`** *(padrão)* — Google Chrome oficial.
-- **`chromium`** — Chromium multi-arquitetura.
+- **`chrome`** *(default)* — Official Google Chrome.
+- **`chromium`** — Multi-architecture Chromium.
 - **`firefox`** — Mozilla Firefox.
-- **`webkit`** — WebKit (engine Safari).
-- **`multi`** — Pacote combinado (Chromium + Firefox + WebKit).
+- **`webkit`** — WebKit (Safari engine).
+- **`multi`** — Combined bundle (Chromium + Firefox + WebKit).
 
-> **Nota:** As variantes `edge` e `sdk` do repositório Browserless não possuem imagem pública acessível anonimamente no GHCR (`401/403`), por isso foram listadas apenas as 5 imagens públicas multi-arch (`amd64`/`arm64`).
+> **Note:** The `edge` and `sdk` variants in the Browserless repository do not provide anonymous public GHCR packages (`401/403`), so only the 5 public multi-arch (`amd64`/`arm64`) images are listed.
 
 ---
 
-## Variáveis Opcionais e `shm_size`
+## Optional Variables & `shm_size`
 
-Todas as variáveis de ambiente (exceto `TZ`, injetado automaticamente pelo Runtipi) e `SHM_SIZE` são **opcionais** e não possuem valor padrão forçado:
+All environment variables (except `TZ`, automatically injected by Runtipi) and `SHM_SIZE` are **optional** and define no forced defaults:
 
-- **Se você deixar em branco:**
-  - As variáveis de ambiente (`MAX_CONCURRENT_SESSIONS`, `CONNECTION_TIMEOUT`, `PREBOOT_CHROME`, `CHROME_REFRESH_TIME`, `ENABLE_CORS`, `DEMOING`) **não são adicionadas ao container** (pass-through YAML sem `=`).
-  - O campo `SHM_SIZE` assume `64m`, que é exatamente o tamanho padrão nativo de `/dev/shm` no Docker quando `shm_size` não é definido.
-- **Sugestões de preenchimento:**
+- **When left blank:**
+  - Environment variables (`MAX_CONCURRENT_SESSIONS`, `CONNECTION_TIMEOUT`, `PREBOOT_CHROME`, `CHROME_REFRESH_TIME`, `ENABLE_CORS`, `DEMOING`) are **not injected into the container** (YAML pass-through without `=`).
+  - `SHM_SIZE` uses `64m`, which matches Docker's native `/dev/shm` default when `shm_size` is omitted.
+- **Example values:**
   - `SHM_SIZE`: `2gb`
   - `MAX_CONCURRENT_SESSIONS`: `10`
   - `CONNECTION_TIMEOUT`: `60000`
@@ -36,8 +36,8 @@ Todas as variáveis de ambiente (exceto `TZ`, injetado automaticamente pelo Runt
 
 ---
 
-## Conexão e Portas
+## Connection & Ports
 
-- **Porta externa padrão:** `9222` (mapeada via `${APP_PORT}:3000`)
-- **Endpoint interno na rede `tipi_main_network`:** `http://browserless:3000` / `ws://browserless:3000`
-- **Endpoint externo / host:** `http://<IP-DO-RUNTIPI>:9222` / `ws://<IP-DO-RUNTIPI>:9222`
+- **Default external port:** `9222` (mapped via `${APP_PORT}:3000`)
+- **Internal endpoint on `tipi_main_network`:** `http://browserless:3000` / `ws://browserless:3000`
+- **External / host endpoint:** `http://<RUNTIPI-IP>:9222` / `ws://<RUNTIPI-IP>:9222`

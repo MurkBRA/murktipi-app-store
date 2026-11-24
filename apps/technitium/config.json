@@ -17,8 +17,8 @@
   "form_fields": [
     {
       "type": "text",
-      "label": "DNS Server Domain Name (FQDN)",
-      "hint": "Nome de domínio padrão do servidor DNS.",
+      "label": "DNS Server Domain Name",
+      "hint": "Default FQDN domain name for the DNS server.",
       "env_variable": "DNS_SERVER_DOMAIN",
       "default": "technitium-dns",
       "required": true
@@ -26,21 +26,21 @@
     {
       "type": "text",
       "label": "DNS Recursion Policy",
-      "hint": "Política de recursão de consultas DNS.",
+      "hint": "Policy governing DNS query recursion.",
       "env_variable": "DNS_SERVER_RECURSION",
       "default": "Allow",
       "required": true,
       "options": [
-        { "label": "Allow (Permitir Todas as Redes)", "value": "Allow" },
+        { "label": "Allow", "value": "Allow" },
         { "label": "Allow Only For Private Networks", "value": "AllowOnlyForPrivateNetworks" },
-        { "label": "Deny (Negar)", "value": "Deny" },
+        { "label": "Deny", "value": "Deny" },
         { "label": "Use Specified Network ACL", "value": "UseSpecifiedNetworkACL" }
       ]
     },
     {
       "type": "password",
       "label": "Admin Web Console Password",
-      "hint": "Senha do usuário admin no console web do DNS.",
+      "hint": "Password for the admin user on the DNS web console.",
       "env_variable": "DNS_SERVER_ADMIN_PASSWORD",
       "default": "senha",
       "required": true

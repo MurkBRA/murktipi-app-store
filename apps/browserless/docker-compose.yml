@@ -10,7 +10,7 @@ services:
     ports:
       - "${APP_PORT}:3000"
     environment:
-      # REMOVIDO: DEBUG=browserless* (remover reduz drasticamente o uso de CPU)
+      # REMOVED: DEBUG=browserless* (removing it drastically reduces CPU usage)
       - MAX_CONCURRENT_SESSIONS
       - CONNECTION_TIMEOUT
       - PREBOOT_CHROME

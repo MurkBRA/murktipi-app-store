@@ -30,17 +30,17 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      # Stratum port primária configurada dinamicamente
+      # Dynamically configured primary Stratum port
       - "${STRATUM_PORT:-4333}:${STRATUM_PORT:-4333}/tcp"
-      # Portas SHA-256d dedicadas para multi-coin
+      # Dedicated SHA-256d ports for multi-coin mode
       - "4334:4334/tcp"     # BTC Stratum V2 Noise
       - "3333:3333/tcp"     # DGB Stratum V1
       - "5333:5333/tcp"     # BCH Stratum V1
       - "16180:16180/tcp"   # Smart Multi Stratum V1
-      # Portas Scrypt dedicadas para multi-coin
+      # Dedicated Scrypt ports for multi-coin mode
       - "7333:7333/tcp"     # LTC Stratum V1
       - "8335:8335/tcp"     # DOGE Stratum V1
-      # API interna do pool / Prometheus exporter
+      # Internal pool API / Prometheus exporter
       - "4000:4000/tcp"
     environment:
       POOL_MODE: ${POOL_MODE:-single}
