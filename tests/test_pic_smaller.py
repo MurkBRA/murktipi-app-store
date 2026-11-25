@@ -10,7 +10,7 @@ def test_pic_smaller_config_fields(get_app_config):
     assert config["exposable"] is True
     assert config["version"] == "1.1.0"
     assert config["version"] != "latest"
-    assert config["tipi_version"] >= 1
+    assert config["tipi_version"] >= 2
     assert set(config["categories"]) == {"utilities", "photography", "media"}
     assert config["supported_architectures"] == ["amd64", "arm64"]
 
