@@ -23,11 +23,11 @@ RUN pip install --no-cache-dir -r /app/requirements.txt \
     && groupadd --system camoufox \
     && useradd --system --gid camoufox --create-home --home-dir /home/camoufox camoufox \
     && mkdir -p /opt/camoufox-cache \
-    && chown -R camoufox:camoufox /opt/camoufox-cache /app
+    && python -m camoufox fetch \
+    && FPDATA_DIR=$(python -c "import importlib.util, pathlib; print(pathlib.Path(importlib.util.find_spec('fpgen').origin).parent / 'data')") \
+    && chown -R camoufox:camoufox /opt/camoufox-cache /app "$FPDATA_DIR"
 
 USER camoufox
-
-RUN python -m camoufox fetch
 
 COPY --chown=camoufox:camoufox config_builder.py proxy.mjs server.py /app/
 
