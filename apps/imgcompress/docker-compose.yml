@@ -1,0 +1,34 @@
+x-runtipi:
+  schema_version: 2
+
+services:
+  imgcompress:
+    image: karimz1/imgcompress:1.0.0
+    container_name: "${CONTAINER_NAME:-imgcompress}"
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT}:5000"
+    environment:
+      - MAX_UPLOAD_SIZE_MB
+      - WEB_WORKERS
+      - DISABLE_LOGO
+      - DISABLE_STORAGE_MANAGEMENT
+      - DISABLE_UPDATE_CHECK
+      - NOTIFY_URL
+      - PUBLIC_BASE_URL
+      - TZ=${TZ}
+    healthcheck:
+      test: ["CMD", "python", "/container/healthcheck.py"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - tipi_main_network
+    x-runtipi:
+      is_main: true
+      internal_port: 5000
+
+networks:
+  tipi_main_network:
+    external: true

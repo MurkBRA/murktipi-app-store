@@ -1,0 +1,97 @@
+{
+  "$schema": "https://raw.githubusercontent.com/runtipi/runtipi-docs/main/src/content/docs/reference/app-config.schema.json",
+  "id": "imgcompress",
+  "name": "ImgCompress",
+  "port": 3001,
+  "available": true,
+  "categories": ["utilities", "photography", "media"],
+  "description": "Self-hosted image compression, conversion, resizing, AI upscaling, and background removal web app supporting over 70 image formats with local processing inside an unprivileged container.",
+  "short_desc": "Self-hosted image compressor, converter, AI upscaler, and background remover",
+  "author": "karimz1",
+  "tipi_version": 1,
+  "version": "1.0.0",
+  "source": "https://github.com/karimz1/imgcompress",
+  "website": "https://imgcompress.karimzouine.com",
+  "exposable": true,
+  "dynamic_config": true,
+  "supported_architectures": ["amd64", "arm64"],
+  "form_fields": [
+    {
+      "type": "text",
+      "label": "container_name",
+      "hint": "Custom Docker container name. Default: imgcompress (if left blank, falls back to imgcompress).",
+      "placeholder": "imgcompress",
+      "regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]+$",
+      "pattern_error": "Must start with a letter or number and contain at least 2 characters (letters, numbers, '.', '_' or '-').",
+      "env_variable": "CONTAINER_NAME",
+      "default": "imgcompress",
+      "required": false
+    },
+    {
+      "type": "number",
+      "label": "MAX_UPLOAD_SIZE_MB",
+      "hint": "Maximum upload size limit in megabytes. Leave blank to keep the upstream default (40960).",
+      "placeholder": "40960",
+      "env_variable": "MAX_UPLOAD_SIZE_MB",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "WEB_WORKERS",
+      "hint": "Web worker concurrency ('auto' or a positive integer). Leave blank to use the upstream default (auto).",
+      "placeholder": "auto",
+      "regex": "^(auto|[1-9][0-9]*)$",
+      "pattern_error": "Enter 'auto' or a positive integer (1 or greater).",
+      "env_variable": "WEB_WORKERS",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "DISABLE_LOGO",
+      "hint": "Hide the sidebar mascot in the web interface (true or false). Leave blank to keep the upstream default (false).",
+      "placeholder": "true",
+      "regex": "^(true|false)$",
+      "pattern_error": "Enter 'true' or 'false'.",
+      "env_variable": "DISABLE_LOGO",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "DISABLE_STORAGE_MANAGEMENT",
+      "hint": "Disable automatic temporary storage cleanup management (true or false). Leave blank to keep the upstream default (false).",
+      "placeholder": "true",
+      "regex": "^(true|false)$",
+      "pattern_error": "Enter 'true' or 'false'.",
+      "env_variable": "DISABLE_STORAGE_MANAGEMENT",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "DISABLE_UPDATE_CHECK",
+      "hint": "Disable outbound update checks against GitHub releases (true or false). Leave blank to keep the upstream default (false).",
+      "placeholder": "true",
+      "regex": "^(true|false)$",
+      "pattern_error": "Enter 'true' or 'false'.",
+      "env_variable": "DISABLE_UPDATE_CHECK",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "NOTIFY_URL",
+      "hint": "Optional Apprise notification URL for batch completion alerts. Leave blank to disable notifications.",
+      "placeholder": "ntfy://ntfy.sh/imgcompress",
+      "env_variable": "NOTIFY_URL",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "PUBLIC_BASE_URL",
+      "hint": "Optional public HTTP or HTTPS base URL included in notification links (without embedded credentials).",
+      "placeholder": "https://imgcompress.example.com",
+      "regex": "^https?://[^\\s/@]+(/[^\\s]*)?$",
+      "pattern_error": "Must be a valid http:// or https:// URL without spaces or embedded credentials.",
+      "env_variable": "PUBLIC_BASE_URL",
+      "required": false
+    }
+  ]
+}

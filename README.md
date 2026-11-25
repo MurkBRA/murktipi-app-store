@@ -1,7 +1,7 @@
 # MurkTipi App Store 🏪
 
 [![CI & Anti-Regression Tests](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml/badge.svg)](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-58%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
+[![Tests Passing](https://img.shields.io/badge/tests-62%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
 [![Runtipi Schema](https://img.shields.io/badge/runtipi%20schema-v2-blue.svg)](https://runtipi.io)
 
 Repositório customizado de aplicativos (App Store de Usuário) para o **[Runtipi](https://runtipi.io)**, mantido por **[@murkbra](https://github.com/murkbra)**.
@@ -75,6 +75,12 @@ Painel moderno de gerenciamento Docker (`fnsys/dockhand:v1.0.59`) com orquestra�
 - **Porta Ajustada:** Porta padrão do host definida em `3180` (`${APP_PORT}:3000`), evitando conflito com serviços na porta `3000`.
 - **Banco com Senha Aleatória:** `POSTGRES_USER` obrigatório definido pelo usuário, `POSTGRES_DB` (`dockhand`), e `POSTGRES_PASSWORD` gerado automaticamente pelo Runtipi em hexadecimal (`type: random`) para uso seguro na `DATABASE_URL` (sem `PUID`/`PGID` e com `CONTAINER_NAME` / `POSTGRES_CONTAINER_NAME` opcionais).
 
+### 7. 🖼️ [ImgCompress](apps/imgcompress)
+Aplicação web self-hosted (`karimz1/imgcompress:1.0.0`) para compressão, conversão, redimensionamento, upscaling por IA e remoção de fundo de imagens localmente em container `nonroot` com suporte a mais de 70 formatos.
+
+- **Porta e Healthcheck:** Expõe a interface web na porta padrão `3001` (`${APP_PORT}:5000`) com verificação nativa via `/container/healthcheck.py`.
+- **Variáveis Opcionais Pass-Through:** `CONTAINER_NAME` configurável (`imgcompress`) e opções pass-through (`MAX_UPLOAD_SIZE_MB`, `WEB_WORKERS`, `DISABLE_LOGO`, `DISABLE_STORAGE_MANAGEMENT`, `DISABLE_UPDATE_CHECK`, `NOTIFY_URL` e `PUBLIC_BASE_URL`) que preservam os padrões originais quando deixadas em branco.
+
 ---
 
 ## 🧪 Política de Testes & Anti-Regressão
@@ -108,7 +114,8 @@ Este repositório possui uma suíte rigorosa de testes automatizados e uma polí
 - `tests/test_email_oauth2_proxy_ui.py`: Testes específicos do Email OAuth2 Proxy UI (integração `ROOT_FOLDER_HOST`, `PROXY_STORE_ID`, imagem GHCR, Dockerfile Go 1.27 Alpine e `logo.jpg`).
 - `tests/test_browserless.py`: Testes específicos do Browserless (versão `v2.64.3` fixada, seleção de imagem com `chrome` padrão, variáveis/shm_size opcionais sem default forçado, `CONTAINER_NAME` opcional e `logo.jpg`).
 - `tests/test_dockhand.py`: Testes específicos do Dockhand (`fnsys/dockhand:v1.0.59`, Postgres 16 com healthcheck, porta ajustada `3180 -> 3000`, ausência de `PUID`/`PGID`, `POSTGRES_USER` definido pelo usuário, `POSTGRES_PASSWORD` `random`/`hex` e `CONTAINER_NAME` configurável).
-- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-031`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
+- `tests/test_imgcompress.py`: Testes específicos do ImgCompress (`karimz1/imgcompress:1.0.0`, mapeamento `3001 -> 5000`, healthcheck `/container/healthcheck.py`, variáveis opcionais pass-through, `CONTAINER_NAME` configurável e `logo.jpg`).
+- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-032`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
 - `.github/workflows/ci.yml`: Automação contínua no GitHub Actions disparada a cada push e pull request.
 
 ---

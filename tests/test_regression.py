@@ -36,6 +36,7 @@ Tracker:
 - REG-029: All apps must use English UI metadata/hints/descriptions, clean labels (shm_size), and example-free placeholders
 - REG-030: Every service across all apps must expose an optional pre-filled container_name variable with safe Compose fallback
 - REG-031: Dockhand must pin fnsys/dockhand version, adjust port off 3000, omit PUID/PGID, require user-defined POSTGRES_USER, and auto-generate URL-safe random POSTGRES_PASSWORD
+- REG-032: ImgCompress must pin karimz1/imgcompress version (never :latest), map ${APP_PORT}:5000 on host port 3001, keep optional env vars pass-through, and preserve healthcheck
 """
 
 import re
@@ -650,6 +651,53 @@ def test_reg_031_dockhand_postgres_pinned_no_puid_random_url_safe_password_and_p
     assert dh["depends_on"]["postgres"]["condition"] == "service_healthy"
     assert "${APP_PORT}:3000" in [str(p) for p in dh.get("ports", [])]
     assert dh.get("x-runtipi", {}).get("internal_port") == 3000
+
+
+def test_reg_032_imgcompress_pinned_port_5000_optional_passthrough_and_healthcheck(apps_dir, get_app_config, get_app_compose):
+    """[REG-032] ImgCompress must pin karimz1/imgcompress version (never :latest), expose port 3001 -> 5000,
+    keep optional runtime variables pass-through without forced defaults, and retain upstream healthcheck."""
+    cfg = get_app_config("imgcompress")
+    compose = get_app_compose("imgcompress")
+
+    version = str(cfg.get("version", ""))
+    assert version and version != "latest", "[REG-032] ImgCompress version must not be 'latest'"
+    assert cfg.get("port") == 3001
+
+    fields = {f["env_variable"]: f for f in cfg.get("form_fields", [])}
+    assert "TZ" not in fields
+    for var in (
+        "MAX_UPLOAD_SIZE_MB",
+        "WEB_WORKERS",
+        "DISABLE_LOGO",
+        "DISABLE_STORAGE_MANAGEMENT",
+        "DISABLE_UPDATE_CHECK",
+        "NOTIFY_URL",
+        "PUBLIC_BASE_URL",
+    ):
+        assert var in fields, f"[REG-032] Missing optional field {var}"
+        assert fields[var].get("required") is False
+        assert "default" not in fields[var]
+
+    svc = compose["services"]["imgcompress"]
+    assert svc.get("image") == f"karimz1/imgcompress:{version}"
+    assert svc.get("container_name") == "${CONTAINER_NAME:-imgcompress}"
+    assert "${APP_PORT}:5000" in [str(p) for p in svc.get("ports", [])]
+    assert svc.get("x-runtipi", {}).get("internal_port") == 5000
+    assert "volumes" not in svc, "[REG-032] ImgCompress runs nonroot on /tmp with no hardcoded volume mounts"
+    assert svc.get("healthcheck", {}).get("test") == ["CMD", "python", "/container/healthcheck.py"]
+    env = svc.get("environment", [])
+    assert isinstance(env, list)
+    assert "TZ=${TZ}" in env
+    for var in (
+        "MAX_UPLOAD_SIZE_MB",
+        "WEB_WORKERS",
+        "DISABLE_LOGO",
+        "DISABLE_STORAGE_MANAGEMENT",
+        "DISABLE_UPDATE_CHECK",
+        "NOTIFY_URL",
+        "PUBLIC_BASE_URL",
+    ):
+        assert var in env
 
 
 
