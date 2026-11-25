@@ -37,6 +37,8 @@ Tracker:
 - REG-030: Every service across all apps must expose an optional pre-filled container_name variable with safe Compose fallback
 - REG-031: Dockhand must pin fnsys/dockhand version, adjust port off 3000, omit PUID/PGID, require user-defined POSTGRES_USER, and auto-generate URL-safe random POSTGRES_PASSWORD
 - REG-032: ImgCompress must pin karimz1/imgcompress version (never :latest), map ${APP_PORT}:5000 on host port 3001, keep optional env vars pass-through, and preserve healthcheck
+- REG-033: Pic Smaller must pin ghcr.io/murkbra/pic-smaller version matching config.json and CI workflow, map ${APP_PORT}:3000 on host port 3002, and preserve healthcheck
+- REG-034: MAZANOKE must pin ghcr.io/civilblur/mazanoke version (never :latest), map ${APP_PORT}:80 on host port 3474, mask PASSWORD, and keep auth env vars pass-through
 """
 
 import re
@@ -698,6 +700,55 @@ def test_reg_032_imgcompress_pinned_port_5000_optional_passthrough_and_healthche
         "PUBLIC_BASE_URL",
     ):
         assert var in env
+
+
+def test_reg_033_pic_smaller_pinned_ghcr_workflow_and_port_3002(repo_root, get_app_config, get_app_compose):
+    """[REG-033] Pic Smaller must pin ghcr.io/murkbra/pic-smaller version matching config.json,
+    expose port 3002 -> 3000, keep multi-arch GitHub Actions build workflow in sync, and include healthcheck."""
+    cfg = get_app_config("pic-smaller")
+    compose = get_app_compose("pic-smaller")
+    wf_text = (repo_root / ".github" / "workflows" / "docker-pic-smaller.yml").read_text(encoding="utf-8")
+
+    version = str(cfg.get("version", ""))
+    assert version and version != "latest", "[REG-033] Pic Smaller version must not be 'latest'"
+    assert cfg.get("port") == 3002
+
+    svc = compose["services"]["pic-smaller"]
+    assert svc.get("image") == f"ghcr.io/murkbra/pic-smaller:{version}"
+    assert svc.get("container_name") == "${CONTAINER_NAME:-pic-smaller}"
+    assert "${APP_PORT}:3000" in [str(p) for p in svc.get("ports", [])]
+    assert svc.get("x-runtipi", {}).get("internal_port") == 3000
+    assert "healthcheck" in svc
+    assert "steps.appver.outputs.version" in wf_text
+    assert "linux/amd64,linux/arm64" in wf_text
+
+
+def test_reg_034_mazanoke_pinned_version_optional_masked_auth_and_port_3474(get_app_config, get_app_compose):
+    """[REG-034] MAZANOKE must pin ghcr.io/civilblur/mazanoke version (never :latest),
+    map ${APP_PORT}:80 on host port 3474, mask PASSWORD, and keep Basic Auth optional via pass-through."""
+    cfg = get_app_config("mazanoke")
+    compose = get_app_compose("mazanoke")
+
+    version = str(cfg.get("version", ""))
+    assert version and version != "latest", "[REG-034] MAZANOKE version must not be 'latest'"
+    assert cfg.get("port") == 3474
+
+    fields = {f["env_variable"]: f for f in cfg.get("form_fields", [])}
+    assert "TZ" not in fields
+    assert fields["PASSWORD"].get("type") == "password", "[REG-034] PASSWORD must use password field type"
+    for var in ("USERNAME", "PASSWORD"):
+        assert fields[var].get("required") is False
+        assert "default" not in fields[var]
+
+    svc = compose["services"]["mazanoke"]
+    assert svc.get("image") == f"ghcr.io/civilblur/mazanoke:{version}"
+    assert svc.get("container_name") == "${CONTAINER_NAME:-mazanoke}"
+    assert "${APP_PORT}:80" in [str(p) for p in svc.get("ports", [])]
+    assert svc.get("x-runtipi", {}).get("internal_port") == 80
+    assert "healthcheck" in svc
+    env = svc.get("environment", [])
+    assert isinstance(env, list)
+    assert "USERNAME" in env and "PASSWORD" in env and "TZ=${TZ}" in env
 
 
 

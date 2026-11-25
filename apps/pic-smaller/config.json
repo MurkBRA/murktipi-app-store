@@ -1,0 +1,31 @@
+{
+  "$schema": "https://raw.githubusercontent.com/runtipi/runtipi-docs/main/src/content/docs/reference/app-config.schema.json",
+  "id": "pic-smaller",
+  "name": "Pic Smaller",
+  "port": 3002,
+  "available": true,
+  "categories": ["utilities", "photography", "media"],
+  "description": "Privacy-first batch image compressor powered by ImageQuant (pngquant engine) and OxiPNG alongside MozJPEG, WebP, AVIF, SVG, GIF, and HEIC codecs running locally in your browser with interactive before-and-after comparison, resizing, cropping, and ZIP export.",
+  "short_desc": "Batch image optimizer with ImageQuant + OxiPNG, MozJPEG, AVIF, WebP, and ZIP export",
+  "author": "joye61",
+  "tipi_version": 1,
+  "version": "1.1.0",
+  "source": "https://github.com/joye61/pic-smaller",
+  "website": "https://picsmaller.com",
+  "exposable": true,
+  "dynamic_config": true,
+  "supported_architectures": ["amd64", "arm64"],
+  "form_fields": [
+    {
+      "type": "text",
+      "label": "container_name",
+      "hint": "Custom Docker container name. Default: pic-smaller (if left blank, falls back to pic-smaller).",
+      "placeholder": "pic-smaller",
+      "regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]+$",
+      "pattern_error": "Must start with a letter or number and contain at least 2 characters (letters, numbers, '.', '_' or '-').",
+      "env_variable": "CONTAINER_NAME",
+      "default": "pic-smaller",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+name: Build & Publish Pic Smaller
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'apps/pic-smaller/config.json'
+      - 'apps/pic-smaller/docker-compose.yml'
+      - '.github/workflows/docker-pic-smaller.yml'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: murkbra/pic-smaller
+  UPSTREAM_REF: 7bfc890a0719f90a629f03ee5580d4bb40b588e9
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Check out store repository
+        uses: actions/checkout@v4
+
+      - name: Resolve & verify app version
+        id: appver
+        run: |
+          APP_VERSION=$(python3 -c "import json; print(json.load(open('apps/pic-smaller/config.json'))['version'])")
+          echo "version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Publishing ghcr.io/${{ env.IMAGE_NAME }}:$APP_VERSION"
+
+      - name: Check out upstream Pic Smaller source
+        uses: actions/checkout@v4
+        with:
+          repository: joye61/pic-smaller
+          ref: ${{ env.UPSTREAM_REF }}
+          path: upstream-src
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ steps.appver.outputs.version }}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-
+
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@v6
+        with:
+          context: upstream-src
+          file: upstream-src/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

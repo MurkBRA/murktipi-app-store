@@ -1,7 +1,7 @@
 # MurkTipi App Store 🏪
 
 [![CI & Anti-Regression Tests](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml/badge.svg)](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-62%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
+[![Tests Passing](https://img.shields.io/badge/tests-70%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
 [![Runtipi Schema](https://img.shields.io/badge/runtipi%20schema-v2-blue.svg)](https://runtipi.io)
 
 Repositório customizado de aplicativos (App Store de Usuário) para o **[Runtipi](https://runtipi.io)**, mantido por **[@murkbra](https://github.com/murkbra)**.
@@ -81,6 +81,16 @@ Aplicação web self-hosted (`karimz1/imgcompress:1.0.0`) para compressão, conv
 - **Porta e Healthcheck:** Expõe a interface web na porta padrão `3001` (`${APP_PORT}:5000`) com verificação nativa via `/container/healthcheck.py`.
 - **Variáveis Opcionais Pass-Through:** `CONTAINER_NAME` configurável (`imgcompress`) e opções pass-through (`MAX_UPLOAD_SIZE_MB`, `WEB_WORKERS`, `DISABLE_LOGO`, `DISABLE_STORAGE_MANAGEMENT`, `DISABLE_UPDATE_CHECK`, `NOTIFY_URL` e `PUBLIC_BASE_URL`) que preservam os padrões originais quando deixadas em branco.
 
+### 8. 🧩 [Pic Smaller](apps/pic-smaller)
+Compressor de imagens em lote no navegador (`ghcr.io/murkbra/pic-smaller:1.1.0`, compilado a partir de `joye61/pic-smaller`) que utiliza **ImageQuant** (`libimagequant` / motor do `pngquant`) + **OxiPNG** para PNG, além de MozJPEG, WebP, AVIF, SVG, GIF e decodificação HEIC/HEIF com comparador visual antes/depois e exportação em ZIP.
+
+- **Porta e Build Multi-Arch:** Expõe a interface web na porta padrão `3002` (`${APP_PORT}:3000`), com `CONTAINER_NAME` opcional (`pic-smaller`), healthcheck nativo e build automática `amd64`/`arm64` via GitHub Actions para o GHCR.
+
+### 9. 🗜️ [MAZANOKE](apps/mazanoke)
+Otimizador e conversor local de imagens em PWA (`ghcr.io/civilblur/mazanoke:v1.1.7`) que roda inteiramente no navegador sem telemetria, com suporte a JPG, PNG, WebP, ICO, HEIC, AVIF, TIFF, GIF e SVG, remoção automática de EXIF e controle por qualidade ou tamanho alvo.
+
+- **Porta e Autenticação Opcional:** Expõe o serviço Nginx na porta padrão `3474` (`${APP_PORT}:80`) com `CONTAINER_NAME` opcional (`mazanoke`), healthcheck em `/manifest.json` e `USERNAME`/`PASSWORD` pass-through para habilitar HTTP Basic Auth apenas quando ambos forem preenchidos.
+
 ---
 
 ## 🧪 Política de Testes & Anti-Regressão
@@ -115,7 +125,9 @@ Este repositório possui uma suíte rigorosa de testes automatizados e uma polí
 - `tests/test_browserless.py`: Testes específicos do Browserless (versão `v2.64.3` fixada, seleção de imagem com `chrome` padrão, variáveis/shm_size opcionais sem default forçado, `CONTAINER_NAME` opcional e `logo.jpg`).
 - `tests/test_dockhand.py`: Testes específicos do Dockhand (`fnsys/dockhand:v1.0.59`, Postgres 16 com healthcheck, porta ajustada `3180 -> 3000`, ausência de `PUID`/`PGID`, `POSTGRES_USER` definido pelo usuário, `POSTGRES_PASSWORD` `random`/`hex` e `CONTAINER_NAME` configurável).
 - `tests/test_imgcompress.py`: Testes específicos do ImgCompress (`karimz1/imgcompress:1.0.0`, mapeamento `3001 -> 5000`, healthcheck `/container/healthcheck.py`, variáveis opcionais pass-through, `CONTAINER_NAME` configurável e `logo.jpg`).
-- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-032`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
+- `tests/test_pic_smaller.py`: Testes específicos do Pic Smaller (`ghcr.io/murkbra/pic-smaller:1.1.0`, mapeamento `3002 -> 3000`, workflow multi-arch no GHCR, healthcheck, `CONTAINER_NAME` configurável e `logo.jpg`).
+- `tests/test_mazanoke.py`: Testes específicos do MAZANOKE (`ghcr.io/civilblur/mazanoke:v1.1.7`, mapeamento `3474 -> 80`, Basic Auth opcional mascarada via pass-through, `CONTAINER_NAME` configurável e `logo.jpg`).
+- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-034`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
 - `.github/workflows/ci.yml`: Automação contínua no GitHub Actions disparada a cada push e pull request.
 
 ---
