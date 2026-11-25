@@ -38,6 +38,7 @@ Tracker:
 - REG-031: Dockhand must pin fnsys/dockhand version, adjust port off 3000, omit PUID/PGID, require user-defined POSTGRES_USER, and auto-generate URL-safe random POSTGRES_PASSWORD
 - REG-032: ImgCompress must pin karimz1/imgcompress version (never :latest), map ${APP_PORT}:5000 on host port 3001, keep optional env vars pass-through, and preserve healthcheck
 - REG-033: Pic Smaller must pin ghcr.io/murkbra/pic-smaller version matching config.json and CI workflow, map ${APP_PORT}:3000 on host port 3002, bump tipi_version >= 2, and preserve healthcheck
+- REG-034: Camoufox must pin ghcr.io/murkbra/camoufox matching config.json and CI workflow, map ${APP_PORT}:9223, mask WS_TOKEN/PROXY_PASSWORD, and keep optional env vars pass-through
 """
 
 import re
@@ -719,6 +720,40 @@ def test_reg_033_pic_smaller_pinned_ghcr_workflow_and_port_3002(repo_root, get_a
     assert "${APP_PORT}:3000" in [str(p) for p in svc.get("ports", [])]
     assert svc.get("x-runtipi", {}).get("internal_port") == 3000
     assert "healthcheck" in svc
+    assert "steps.appver.outputs.version" in wf_text
+    assert "linux/amd64,linux/arm64" in wf_text
+
+
+def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo_root, get_app_config, get_app_compose):
+    """[REG-034] Camoufox must pin ghcr.io/murkbra/camoufox matching config.json and requirements.txt,
+    map ${APP_PORT}:9223, mask WS_TOKEN/PROXY_PASSWORD, keep optional env vars pass-through, and include healthcheck."""
+    cfg = get_app_config("camoufox")
+    compose = get_app_compose("camoufox")
+    wf_text = (repo_root / ".github" / "workflows" / "docker-camoufox.yml").read_text(encoding="utf-8")
+
+    version = str(cfg.get("version", ""))
+    assert version and version != "latest", "[REG-034] Camoufox version must not be 'latest'"
+    assert cfg.get("port") == 9223
+
+    fields = {f["env_variable"]: f for f in cfg.get("form_fields", [])}
+    assert "TZ" not in fields
+    assert fields["WS_TOKEN"].get("type") == "password"
+    assert fields["PROXY_PASSWORD"].get("type") == "password"
+    for var in ("WS_TOKEN", "GEOIP", "OS_TARGET", "LOCALE", "BLOCK_IMAGES", "BLOCK_WEBRTC", "DISABLE_COOP", "PROXY_SERVER", "PROXY_USERNAME", "PROXY_PASSWORD", "SHM_SIZE"):
+        assert fields[var].get("required") is False
+        assert "default" not in fields[var]
+
+    svc = compose["services"]["camoufox"]
+    assert svc.get("image") == f"ghcr.io/murkbra/camoufox:{version}"
+    assert svc.get("container_name") == "${CONTAINER_NAME:-camoufox}"
+    assert svc.get("shm_size") == "${SHM_SIZE:-64m}"
+    assert "${APP_PORT}:9223" in [str(p) for p in svc.get("ports", [])]
+    assert svc.get("x-runtipi", {}).get("internal_port") == 9223
+    assert "healthcheck" in svc
+    env = [str(e) for e in svc.get("environment", [])]
+    assert "HEADLESS=${HEADLESS:-virtual}" in env and "TZ=${TZ}" in env
+    for var in ("WS_TOKEN", "GEOIP", "OS_TARGET", "LOCALE", "BLOCK_IMAGES", "BLOCK_WEBRTC", "DISABLE_COOP", "PROXY_SERVER", "PROXY_USERNAME", "PROXY_PASSWORD"):
+        assert var in env
     assert "steps.appver.outputs.version" in wf_text
     assert "linux/amd64,linux/arm64" in wf_text
 

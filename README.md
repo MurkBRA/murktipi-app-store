@@ -1,7 +1,7 @@
 # MurkTipi App Store 🏪
 
 [![CI & Anti-Regression Tests](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml/badge.svg)](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-66%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
+[![Tests Passing](https://img.shields.io/badge/tests-71%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
 [![Runtipi Schema](https://img.shields.io/badge/runtipi%20schema-v2-blue.svg)](https://runtipi.io)
 
 Repositório customizado de aplicativos (App Store de Usuário) para o **[Runtipi](https://runtipi.io)**, mantido por **[@murkbra](https://github.com/murkbra)**.
@@ -86,6 +86,12 @@ Compressor de imagens em lote no navegador (`ghcr.io/murkbra/pic-smaller:1.1.0`,
 
 - **Porta e Build Multi-Arch:** Expõe a interface web na porta padrão `3002` (`${APP_PORT}:3000`), com `CONTAINER_NAME` opcional (`pic-smaller`), healthcheck nativo e build automática `amd64`/`arm64` via GitHub Actions para o GHCR.
 
+### 9. 🦊 [Camoufox](apps/camoufox)
+Servidor WebSocket Playwright baseado no navegador anti-detecção **Camoufox** (`ghcr.io/murkbra/camoufox:0.5.9`, empacotando `daijro/camoufox`) com compatibilidade nativa com `playwright.firefox.connect(...)` para **Node-RED**, **n8n** e automações Playwright na porta `9223` (`${APP_PORT}:9223`).
+
+- **Display Virtual e Impressão Digital:** Suporta `HEADLESS` (`virtual` via Xvfb por padrão ou `true`), `GEOIP`, `OS_TARGET`, `LOCALE`, `BLOCK_IMAGES`, `BLOCK_WEBRTC`, `DISABLE_COOP`, proxy upstream (`PROXY_SERVER`/`PROXY_USERNAME`/`PROXY_PASSWORD`) e `SHM_SIZE` opcional.
+- **Dashboard & Auth Opcional:** Página de status em `/`, descoberta `/json`, healthcheck `/health` e autenticação opcional por `WS_TOKEN` (via `/<token>`, `?token=` ou `Authorization: Bearer`) com build multi-arch (`amd64`/`arm64`) no GHCR.
+
 ---
 
 ## 🧪 Política de Testes & Anti-Regressão
@@ -121,7 +127,8 @@ Este repositório possui uma suíte rigorosa de testes automatizados e uma polí
 - `tests/test_dockhand.py`: Testes específicos do Dockhand (`fnsys/dockhand:v1.0.59`, Postgres 16 com healthcheck, porta ajustada `3180 -> 3000`, ausência de `PUID`/`PGID`, `POSTGRES_USER` definido pelo usuário, `POSTGRES_PASSWORD` `random`/`hex` e `CONTAINER_NAME` configurável).
 - `tests/test_imgcompress.py`: Testes específicos do ImgCompress (`karimz1/imgcompress:1.0.0`, mapeamento `3001 -> 5000`, healthcheck `/container/healthcheck.py`, variáveis opcionais pass-through, `CONTAINER_NAME` configurável e `logo.jpg`).
 - `tests/test_pic_smaller.py`: Testes específicos do Pic Smaller (`ghcr.io/murkbra/pic-smaller:1.1.0`, mapeamento `3002 -> 3000`, workflow multi-arch no GHCR, healthcheck, `CONTAINER_NAME` configurável e `logo.jpg`).
-- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-033`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
+- `tests/test_camoufox.py`: Testes específicos do Camoufox (`ghcr.io/murkbra/camoufox:0.5.9`, mapeamento `9223 -> 9223`, pacote `packages/camoufox/`, workflow multi-arch no GHCR, segredos mascarados, healthcheck e `logo.jpg`).
+- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-034`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
 - `.github/workflows/ci.yml`: Automação contínua no GitHub Actions disparada a cada push e pull request.
 
 ---

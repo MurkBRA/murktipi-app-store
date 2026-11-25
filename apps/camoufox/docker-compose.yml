@@ -1,0 +1,39 @@
+x-runtipi:
+  schema_version: 2
+
+services:
+  camoufox:
+    image: ghcr.io/murkbra/camoufox:0.5.9
+    container_name: "${CONTAINER_NAME:-camoufox}"
+    restart: unless-stopped
+    shm_size: "${SHM_SIZE:-64m}"
+    ports:
+      - "${APP_PORT}:9223"
+    environment:
+      - HEADLESS=${HEADLESS:-virtual}
+      - WS_TOKEN
+      - GEOIP
+      - OS_TARGET
+      - LOCALE
+      - BLOCK_IMAGES
+      - BLOCK_WEBRTC
+      - DISABLE_COOP
+      - PROXY_SERVER
+      - PROXY_USERNAME
+      - PROXY_PASSWORD
+      - TZ=${TZ}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9223/health', timeout=5)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - tipi_main_network
+    x-runtipi:
+      is_main: true
+      internal_port: 9223
+
+networks:
+  tipi_main_network:
+    external: true
