@@ -25,7 +25,17 @@ RUN python -m playwright install-deps firefox \
         util-linux \
         libgl1 \
         libgl1-mesa-dri \
-    && rm -rf /var/lib/apt/lists/*
+        libgbm1 \
+        libegl1 \
+        libpixman-1-0 \
+        libxkbcommon0 \
+        libxtst6 \
+        libxi6 \
+        libice6 \
+        libsm6 \
+        libx11-xcb1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && python -c "import pixelflux, pcmflux, selkies, cryptography; print('Selkies native deps OK')"
 
 RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
     if [ -s /run/secrets/GITHUB_TOKEN ]; then export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; fi \

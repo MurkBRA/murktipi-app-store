@@ -8,7 +8,7 @@
   "description": "Anti-detect Firefox Playwright WebSocket server with integrated Selkies live browser viewer (/viewer/), built on official daijro/camoufox with C++ fingerprint spoofing, virtual Xvfb display support, optional GeoIP matching, proxy configuration, /json discovery, and optional token authentication for Playwright, Node-RED, and n8n.",
   "short_desc": "Anti-detect Firefox Playwright server with Selkies live viewer",
   "author": "daijro",
-  "tipi_version": 2,
+  "tipi_version": 3,
   "version": "0.5.9",
   "source": "https://github.com/daijro/camoufox",
   "website": "https://camoufox.com",

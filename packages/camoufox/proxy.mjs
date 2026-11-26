@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
 import http from "node:http";
+import https from "node:https";
 import net from "node:net";
 
 const HOST = process.env.PROXY_BIND_HOST || "0.0.0.0";
@@ -8,6 +10,8 @@ const INTERNAL_HOST = "127.0.0.1";
 const INTERNAL_PORT = Number(process.env.INTERNAL_WS_PORT || "9224");
 const INTERNAL_WS_PATH = ensureLeadingSlash(process.env.INTERNAL_WS_PATH || "/camoufox");
 const SELKIES_PORT = Number(process.env.SELKIES_PORT || "8080");
+const TLS_CERT_PATH = (process.env.TLS_CERT_PATH || "").trim();
+const TLS_KEY_PATH = (process.env.TLS_KEY_PATH || "").trim();
 const VIEWER_PREFIX = "/viewer";
 const VIEWER_ENABLED = !["0", "false", "no", "off"].includes(
   String(process.env.VIEWER_ACTIVE || "true").trim().toLowerCase()
@@ -19,7 +23,50 @@ const CAMOUFOX_VERSION = (process.env.CAMOUFOX_LIB_VERSION || "0.5.9").trim();
 const STARTED_AT = Date.now();
 const VIEWER_COOKIE_NAME = "camoufox_viewer_auth";
 
+let tlsOptions = null;
+if (TLS_CERT_PATH && TLS_KEY_PATH && fs.existsSync(TLS_CERT_PATH) && fs.existsSync(TLS_KEY_PATH)) {
+  try {
+    tlsOptions = {
+      cert: fs.readFileSync(TLS_CERT_PATH),
+      key: fs.readFileSync(TLS_KEY_PATH),
+    };
+  } catch {
+    tlsOptions = null;
+  }
+}
+const TLS_ENABLED = Boolean(tlsOptions);
+
 let activeConnections = 0;
+
+function isRequestTls(req) {
+  return Boolean(req.socket && req.socket.encrypted);
+}
+
+function isSecureTransport(req) {
+  if (isRequestTls(req)) return true;
+  const fwdProto = String(req.headers["x-forwarded-proto"] || "")
+    .toLowerCase()
+    .split(",")[0]
+    .trim();
+  if (fwdProto === "https") return true;
+  return String(req.headers["x-forwarded-ssl"] || "").toLowerCase().trim() === "on";
+}
+
+function extractHostname(hostHeader) {
+  const raw = String(hostHeader || "").trim();
+  if (!raw) return "localhost";
+  if (raw.startsWith("[")) {
+    const end = raw.indexOf("]");
+    return end >= 0 ? raw.slice(1, end).toLowerCase() : raw.toLowerCase();
+  }
+  const idx = raw.lastIndexOf(":");
+  return (idx >= 0 ? raw.slice(0, idx) : raw).toLowerCase();
+}
+
+function isLocalHostHeader(hostHeader) {
+  const host = extractHostname(hostHeader);
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
+}
 
 function ensureLeadingSlash(value) {
   return value.startsWith("/") ? value : `/${value}`;
@@ -153,9 +200,15 @@ function escapeHtml(text) {
 }
 
 function renderStatusHtml(req, ready, viewerReady) {
-  const hostHeader = escapeHtml(req.headers.host || `localhost:${PORT}`);
+  const rawHost = req.headers.host || `localhost:${PORT}`;
+  const hostHeader = escapeHtml(rawHost);
+  const secure = isSecureTransport(req);
+  const needsHttpsForViewer = TLS_ENABLED && !secure && !isLocalHostHeader(rawHost);
+  const viewerHref = needsHttpsForViewer ? `https://${hostHeader}/viewer/` : "/viewer/";
+  const httpsDashboardHref = `https://${hostHeader}/?embed=1`;
   const publicPath = WS_TOKEN ? "/<WS_TOKEN>" : INTERNAL_WS_PATH;
-  const wsExample = `ws://${hostHeader}${WS_TOKEN ? "/<YOUR_WS_TOKEN>" : "/"}`;
+  const wsScheme = secure ? "wss" : "ws";
+  const wsExample = `${wsScheme}://${hostHeader}${WS_TOKEN ? "/<YOUR_WS_TOKEN>" : "/"}`;
   const badgeColor = ready ? "#10b981" : "#f59e0b";
   const badgeLabel = ready ? "Playwright Ready" : "Starting";
   const viewerBadgeColor = !VIEWER_ENABLED ? "#64748b" : viewerReady ? "#38bdf8" : "#f59e0b";
@@ -166,13 +219,21 @@ function renderStatusHtml(req, ready, viewerReady) {
       : "Selkies Starting";
   const authLabel = WS_TOKEN ? "Token Required (WS_TOKEN)" : "Open (No WS_TOKEN)";
   const uptimeSec = Math.floor((Date.now() - STARTED_AT) / 1000);
+  const httpsHint = needsHttpsForViewer
+    ? `<p class="muted">Selkies WebCodecs requires HTTPS on non-localhost hosts. Opening the viewer upgrades to <code>https://${hostHeader}/viewer/</code> (accept the self-signed certificate once if accessing directly by LAN IP).</p>`
+    : "";
   const viewerSection = VIEWER_ENABLED
     ? `<div class="actions">
-         <a class="btn" href="/viewer/" target="_blank" rel="noopener">Open Live Browser Viewer (Selkies)</a>
+         <a class="btn" href="${viewerHref}" target="_blank" rel="noopener">Open Live Browser Viewer (Selkies)</a>
          <button class="btn btn-secondary" type="button" onclick="toggleEmbed()">Toggle Embedded View</button>
        </div>
+       ${httpsHint}
        <div id="embedWrap" class="embed-wrap" style="display:none;">
-         <iframe id="viewerFrame" title="Selkies Live Browser" style="width:100%;height:640px;border:1px solid #1e293b;border-radius:10px;background:#020617;"></iframe>
+         ${
+           needsHttpsForViewer
+             ? `<p class="muted">Embedded viewer requires HTTPS on this host. <a href="${httpsDashboardHref}" style="color:#fb923c;">Switch dashboard to HTTPS</a> or open the viewer in a new tab above.</p>`
+             : `<iframe id="viewerFrame" title="Selkies Live Browser" style="width:100%;height:640px;border:1px solid #1e293b;border-radius:10px;background:#020617;"></iframe>`
+         }
        </div>`
     : `<p class="muted">Live browser viewer requires <code>HEADLESS=virtual</code> (currently running in native headless mode).</p>`;
 
@@ -250,12 +311,15 @@ await browser.close();</pre>
     function toggleEmbed() {
       const wrap = document.getElementById('embedWrap');
       const frame = document.getElementById('viewerFrame');
-      if (!wrap || !frame) return;
+      if (!wrap) return;
       const open = wrap.style.display === 'none';
       wrap.style.display = open ? 'block' : 'none';
-      if (open && !frame.getAttribute('src')) {
+      if (open && frame && !frame.getAttribute('src')) {
         frame.setAttribute('src', '/viewer/');
       }
+    }
+    if (new URLSearchParams(window.location.search).get('embed') === '1') {
+      toggleEmbed();
     }
   </script>
 </body>
@@ -275,6 +339,9 @@ function sendJson(res, status, payload) {
 function proxyViewerHttp(req, res) {
   const headers = { ...req.headers };
   delete headers.authorization;
+  if (isRequestTls(req) && !headers["x-forwarded-proto"]) {
+    headers["x-forwarded-proto"] = "https";
+  }
   const upstreamReq = http.request(
     {
       hostname: INTERNAL_HOST,
@@ -298,7 +365,7 @@ function proxyViewerHttp(req, res) {
   req.pipe(upstreamReq);
 }
 
-const server = http.createServer(async (req, res) => {
+const handleHttpRequest = async (req, res) => {
   const url = parseReqUrl(req.url);
 
   if (url.pathname === "/health") {
@@ -310,6 +377,7 @@ const server = http.createServer(async (req, res) => {
       ready,
       viewerEnabled: VIEWER_ENABLED,
       viewerReady,
+      tlsEnabled: TLS_ENABLED,
       engine: "camoufox",
       version: CAMOUFOX_VERSION,
       headless: HEADLESS_MODE,
@@ -326,15 +394,17 @@ const server = http.createServer(async (req, res) => {
     const ready = await probeTcp(INTERNAL_PORT);
     const hostHeader = req.headers.host || `localhost:${PORT}`;
     const publicPath = WS_TOKEN ? `/${WS_TOKEN}` : INTERNAL_WS_PATH;
+    const wsScheme = isSecureTransport(req) ? "wss" : "ws";
     sendJson(res, ready ? 200 : 503, {
       ready,
       viewerEnabled: VIEWER_ENABLED,
       viewerPath: VIEWER_ENABLED ? `${VIEWER_PREFIX}/` : null,
+      tlsEnabled: TLS_ENABLED,
       engine: "camoufox",
       browser: "firefox",
       version: CAMOUFOX_VERSION,
       wsEndpointPath: publicPath,
-      wsEndpoint: `ws://${hostHeader}${publicPath}`,
+      wsEndpoint: `${wsScheme}://${hostHeader}${publicPath}`,
     });
     return;
   }
@@ -342,6 +412,16 @@ const server = http.createServer(async (req, res) => {
   if (isViewerPath(url.pathname)) {
     if (!VIEWER_ENABLED) {
       sendJson(res, 503, { error: "Live viewer is disabled when HEADLESS=true." });
+      return;
+    }
+    if (TLS_ENABLED && !isSecureTransport(req) && !isLocalHostHeader(req.headers.host)) {
+      const hostHeader = req.headers.host || `localhost:${PORT}`;
+      const targetUrl = `https://${hostHeader}${req.url || `${VIEWER_PREFIX}/`}`;
+      res.writeHead(302, {
+        Location: targetUrl,
+        "Cache-Control": "no-store",
+      });
+      res.end();
       return;
     }
     const auth = checkViewerAuth(req);
@@ -359,8 +439,9 @@ const server = http.createServer(async (req, res) => {
       cleanUrl.searchParams.delete("token");
       const targetPath = cleanUrl.pathname === VIEWER_PREFIX ? `${VIEWER_PREFIX}/` : cleanUrl.pathname;
       const qs = cleanUrl.searchParams.toString();
+      const secureAttr = isSecureTransport(req) ? "; Secure" : "";
       res.writeHead(302, {
-        "Set-Cookie": `${VIEWER_COOKIE_NAME}=${tokenDigestHex(WS_TOKEN)}; Path=${VIEWER_PREFIX}; HttpOnly; SameSite=Lax`,
+        "Set-Cookie": `${VIEWER_COOKIE_NAME}=${tokenDigestHex(WS_TOKEN)}; Path=${VIEWER_PREFIX}; HttpOnly; SameSite=Lax${secureAttr}`,
         Location: qs ? `${targetPath}?${qs}` : targetPath,
       });
       res.end();
@@ -394,13 +475,20 @@ const server = http.createServer(async (req, res) => {
   }
 
   sendJson(res, 404, { error: "Not Found" });
-});
+};
 
 function pipeRawUpgrade(req, clientSocket, head, targetPort, targetPath, stripAuthHeader = false) {
   const rawHeaders = [];
+  let hasFwdProto = false;
   for (let i = 0; i < req.rawHeaders.length; i += 2) {
-    if (stripAuthHeader && req.rawHeaders[i].toLowerCase() === "authorization") continue;
-    rawHeaders.push(`${req.rawHeaders[i]}: ${req.rawHeaders[i + 1]}`);
+    const name = req.rawHeaders[i];
+    const lower = name.toLowerCase();
+    if (stripAuthHeader && lower === "authorization") continue;
+    if (lower === "x-forwarded-proto") hasFwdProto = true;
+    rawHeaders.push(`${name}: ${req.rawHeaders[i + 1]}`);
+  }
+  if (isRequestTls(req) && !hasFwdProto) {
+    rawHeaders.push("X-Forwarded-Proto: https");
   }
   const handshake = `${req.method || "GET"} ${targetPath} HTTP/${req.httpVersion || "1.1"}\r\n${rawHeaders.join("\r\n")}\r\n\r\n`;
 
@@ -444,7 +532,7 @@ function pipeRawUpgrade(req, clientSocket, head, targetPort, targetPath, stripAu
   clientSocket.once("close", cleanup);
 }
 
-server.on("upgrade", (req, clientSocket, head) => {
+const handleUpgrade = (req, clientSocket, head) => {
   const url = parseReqUrl(req.url);
 
   if (isViewerPath(url.pathname)) {
@@ -475,17 +563,58 @@ server.on("upgrade", (req, clientSocket, head) => {
   }
 
   pipeRawUpgrade(req, clientSocket, head, INTERNAL_PORT, buildInternalTarget(req.url), false);
-});
+};
+
+const httpServer = http.createServer(handleHttpRequest);
+httpServer.on("upgrade", handleUpgrade);
+
+const httpsServer = tlsOptions ? https.createServer(tlsOptions, handleHttpRequest) : null;
+if (httpsServer) {
+  httpsServer.on("upgrade", handleUpgrade);
+}
+
+const server = tlsOptions
+  ? net.createServer((socket) => {
+      socket.on("error", () => {
+        if (!socket.destroyed) socket.destroy();
+      });
+      socket.setTimeout(10000, () => {
+        if (!socket.destroyed) socket.destroy();
+      });
+      const onReadable = () => {
+        const firstByte = socket.read(1);
+        if (firstByte === null) {
+          if (socket.readableEnded) {
+            socket.destroy();
+          } else {
+            socket.once("readable", onReadable);
+          }
+          return;
+        }
+        socket.setTimeout(0);
+        socket.unshift(firstByte);
+        if (firstByte[0] === 0x16) {
+          httpsServer.emit("connection", socket);
+        } else {
+          httpServer.emit("connection", socket);
+        }
+      };
+      socket.once("readable", onReadable);
+    })
+  : httpServer;
 
 for (const sig of ["SIGTERM", "SIGINT"]) {
   process.on(sig, () => {
     server.close(() => process.exit(0));
+    httpServer.closeAllConnections?.();
+    httpsServer?.closeAllConnections?.();
     setTimeout(() => process.exit(0), 3000).unref();
   });
 }
 
 server.listen(PORT, HOST, () => {
+  const protoDesc = TLS_ENABLED ? `http+https://${HOST}:${PORT}` : `http://${HOST}:${PORT}`;
   console.log(
-    `[camoufox-proxy] Listening on http://${HOST}:${PORT} -> ws://${INTERNAL_HOST}:${INTERNAL_PORT}${INTERNAL_WS_PATH} (viewer=${VIEWER_ENABLED ? VIEWER_PREFIX + "/ -> :" + SELKIES_PORT : "disabled"}, auth=${WS_TOKEN ? "enabled" : "disabled"})`
+    `[camoufox-proxy] Listening on ${protoDesc} -> ws://${INTERNAL_HOST}:${INTERNAL_PORT}${INTERNAL_WS_PATH} (viewer=${VIEWER_ENABLED ? VIEWER_PREFIX + "/ -> :" + SELKIES_PORT : "disabled"}, tls=${TLS_ENABLED ? "enabled" : "disabled"}, auth=${WS_TOKEN ? "enabled" : "disabled"})`
   );
 });

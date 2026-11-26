@@ -747,7 +747,7 @@ def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo
     assert svc.get("image") == f"ghcr.io/murkbra/camoufox:{version}"
     assert svc.get("container_name") == "${CONTAINER_NAME:-camoufox}"
     assert svc.get("shm_size") == "${SHM_SIZE:-256m}"
-    assert cfg.get("tipi_version", 0) >= 2
+    assert cfg.get("tipi_version", 0) >= 3
     assert "${APP_PORT}:9223" in [str(p) for p in svc.get("ports", [])]
     assert svc.get("x-runtipi", {}).get("internal_port") == 9223
     assert "healthcheck" in svc

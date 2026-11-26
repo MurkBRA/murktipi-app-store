@@ -7,7 +7,7 @@
 When `HEADLESS=virtual` (the default) and `ENABLE_VIEWER` is enabled (`true` by default), Camoufox runs inside a shared virtual X11 display (`:99`, Openbox) streamed by **Selkies**.
 
 1. Click **Open** in Runtipi to open the Camoufox dashboard on port `9223`.
-2. Click **Open Live Browser Viewer** (or navigate directly to `http://<host>:<port>/viewer/`).
+2. Click **Open Live Browser Viewer** (or navigate directly to `https://<host>:9223/viewer/` — port `9223` automatically serves both HTTP/WS and HTTPS/WSS on the same port; accept the self-signed certificate prompt once if accessing directly by LAN IP, because Selkies WebCodecs requires a secure HTTPS context).
 3. Any browser context or tab opened by Playwright (`firefox.connect`) renders live in `/viewer/`, with full mouse and keyboard interaction.
 
 > If `WS_TOKEN` is configured, protect `/viewer/` using your token via `?token=<token>` (sets an HttpOnly session cookie), HTTP Basic Auth (password = `WS_TOKEN`), or an `Authorization: Bearer <token>` header.

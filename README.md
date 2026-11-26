@@ -1,7 +1,7 @@
 # MurkTipi App Store 🏪
 
 [![CI & Anti-Regression Tests](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml/badge.svg)](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-71%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
+[![Tests Passing](https://img.shields.io/badge/tests-72%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
 [![Runtipi Schema](https://img.shields.io/badge/runtipi%20schema-v2-blue.svg)](https://runtipi.io)
 
 Repositório customizado de aplicativos (App Store de Usuário) para o **[Runtipi](https://runtipi.io)**, mantido por **[@murkbra](https://github.com/murkbra)**.
@@ -90,7 +90,7 @@ Compressor de imagens em lote no navegador (`ghcr.io/murkbra/pic-smaller:1.1.0`,
 Servidor WebSocket Playwright baseado no navegador anti-detecção **Camoufox** (`ghcr.io/murkbra/camoufox:0.5.9`, empacotando `daijro/camoufox`) com visualizador ao vivo integrado via **Selkies** (`/viewer/`) na mesma porta `9223` (`${APP_PORT}:9223`) e compatibilidade nativa com `playwright.firefox.connect(...)` para **Node-RED**, **n8n** e automações Playwright.
 
 - **Visualizador Ao Vivo & Display Virtual:** No modo padrão `HEADLESS=virtual`, roda em display virtual compartilhado (`Xvfb :99` + `Openbox`) transmitido pelo **Selkies** em `/viewer/`, com controle por `ENABLE_VIEWER` e `VIEWER_RESOLUTION` (`1920x1080` padrão) além de `GEOIP`, `OS_TARGET`, `LOCALE`, `BLOCK_IMAGES`, `BLOCK_WEBRTC`, `DISABLE_COOP`, proxy upstream e `SHM_SIZE` (`256m` padrão).
-- **Dashboard & Auth Opcional:** Página de status em `/` com botão direto para o navegador ao vivo (`/viewer/`), descoberta `/json`, healthcheck `/health` e autenticação unificada opcional por `WS_TOKEN` com build multi-arch (`amd64`/`arm64`) no GHCR.
+- **Dashboard & Auth Opcional:** Página de status em `/` com botão direto para o navegador ao vivo (`/viewer/` com multiplexação HTTP+HTTPS automática na porta `9223` para atender ao Secure Context/WebCodecs do Selkies), descoberta `/json`, healthcheck `/health` e autenticação unificada opcional por `WS_TOKEN` com build multi-arch (`amd64`/`arm64`) no GHCR.
 
 ---
 

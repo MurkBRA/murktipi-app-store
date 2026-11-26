@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import base64
+import datetime
 import importlib.metadata
+import ipaddress
 import os
 import shutil
 import signal
@@ -18,6 +20,10 @@ import orjson
 from camoufox.server import LAUNCH_SCRIPT, get_nodejs, to_camel_case_dict
 from camoufox.utils import launch_options, start_virtual_display
 from camoufox.virtdisplay import VirtualDisplay
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 from config_builder import (
     build_camoufox_kwargs,
@@ -29,6 +35,88 @@ from config_builder import (
 _STOPPING = False
 _SHARED_DISPLAY = ":99"
 _DISPLAY_SOCKET = "/tmp/.X11-unix/X99"
+_DEFAULT_TLS_DIR = Path("/tmp/camoufox-tls")
+
+
+def _ensure_tls_cert() -> tuple[str, str]:
+    """Return paths to TLS cert and key PEM files, generating a self-signed SAN cert if needed."""
+    env_cert = (os.environ.get("TLS_CERT_PATH") or "").strip()
+    env_key = (os.environ.get("TLS_KEY_PATH") or "").strip()
+    if env_cert and env_key and os.path.isfile(env_cert) and os.path.isfile(env_key):
+        return env_cert, env_key
+
+    cert_path = _DEFAULT_TLS_DIR / "cert.pem"
+    key_path = _DEFAULT_TLS_DIR / "key.pem"
+    if cert_path.is_file() and key_path.is_file():
+        return str(cert_path), str(key_path)
+
+    _DEFAULT_TLS_DIR.mkdir(parents=True, exist_ok=True)
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+    san_entries: list[x509.GeneralName] = [
+        x509.DNSName("localhost"),
+        x509.IPAddress(ipaddress.ip_address("127.0.0.1")),
+        x509.IPAddress(ipaddress.ip_address("::1")),
+    ]
+    seen_dns = {"localhost"}
+    seen_ips = {"127.0.0.1", "::1"}
+
+    hostname = socket.gethostname().strip()
+    if hostname and hostname not in seen_dns:
+        seen_dns.add(hostname)
+        san_entries.append(x509.DNSName(hostname))
+
+    extra_hosts = [h.strip() for h in (os.environ.get("TLS_HOSTS") or "").split(",") if h.strip()]
+    for host in extra_hosts:
+        try:
+            ip_obj = ipaddress.ip_address(host)
+            if str(ip_obj) not in seen_ips:
+                seen_ips.add(str(ip_obj))
+                san_entries.append(x509.IPAddress(ip_obj))
+        except ValueError:
+            if host not in seen_dns:
+                seen_dns.add(host)
+                san_entries.append(x509.DNSName(host))
+
+    try:
+        for info in socket.getaddrinfo(hostname or None, None):
+            addr = info[4][0].split("%", 1)[0]
+            try:
+                ip_obj = ipaddress.ip_address(addr)
+                if str(ip_obj) not in seen_ips:
+                    seen_ips.add(str(ip_obj))
+                    san_entries.append(x509.IPAddress(ip_obj))
+            except ValueError:
+                pass
+    except OSError:
+        pass
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "camoufox")])
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - datetime.timedelta(days=1))
+        .not_valid_after(now + datetime.timedelta(days=3650))
+        .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+        .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+        .add_extension(x509.SubjectAlternativeName(san_entries), critical=False)
+        .sign(key, hashes.SHA256())
+    )
+
+    key_path.write_bytes(
+        key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    )
+    os.chmod(key_path, 0o600)
+    cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    return str(cert_path), str(key_path)
 
 
 def _stop_process(proc: Optional[subprocess.Popen], close_stdin: bool = False) -> None:
@@ -212,6 +300,12 @@ def main() -> int:
     proxy_env = os.environ.copy()
     proxy_env["VIEWER_ACTIVE"] = "true" if viewer_enabled else "false"
     proxy_env["SELKIES_PORT"] = str(selkies_port)
+    try:
+        cert_path, key_path = _ensure_tls_cert()
+        proxy_env["TLS_CERT_PATH"] = cert_path
+        proxy_env["TLS_KEY_PATH"] = key_path
+    except Exception as exc:
+        print(f"[camoufox-supervisor] Warning: TLS cert generation failed ({exc}); serving HTTP only", flush=True)
     try:
         proxy_env.setdefault("CAMOUFOX_LIB_VERSION", importlib.metadata.version("camoufox"))
     except importlib.metadata.PackageNotFoundError:
