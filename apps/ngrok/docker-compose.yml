@@ -1,0 +1,71 @@
+x-runtipi:
+  schema_version: 2
+
+services:
+  ngrok-filtros:
+    image: nginx:1.31.10-alpine
+    container_name: "${FILTERS_CONTAINER_NAME:-ngrok-filtros}"
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - ENABLE_NGINX_FILTER=${ENABLE_NGINX_FILTER:-true}
+      - NGINX_CONF_B64=${NGINX_CONF_BASE64:-c2VydmVyIHsNCiAgICBsaXN0ZW4gODA7DQoNCiAgICAjIDEuIEVOVFJFR0EgRVJSTyA0MDQgTkEgUkFJWiAoLykgU0VNIFJFRElSRUNJT05BUg0KICAgIGxvY2F0aW9uID0gLyB7DQogICAgICAgIGRlZmF1bHRfdHlwZSB0ZXh0L2h0bWw7DQogICAgICAgIHJldHVybiAyMDAgJzxtZXRhIG5hbWU9ImNvbG9yLXNjaGVtZSIgY29udGVudD0iZGFyayI+PHRpdGxlPjQwNDwvdGl0bGU+NDA0JzsNCiAgICB9DQoNCiAgICAjIDIuIFNFIE8gTkFWRUdBRE9SIEFJTkRBIFRFTlRBUiAiL2Vycm9yLmh0bWwiIE9VICIvZXJyb3IuaHRtbC8iLCBSRURJUkVDSU9OQSBERSBWT0xUQSBQQVJBIEEgUkFJWiBMSU1QQQ0KICAgIGxvY2F0aW9uIH4gXi9lcnJvclwuaHRtbC8/JCB7DQogICAgICAgIHJldHVybiAzMDEgLzsNCiAgICB9DQoNCiAgICAjIDMuIFRPREFTIEFTIE9VVFJBUyBST1RBUyBFIEFQSVMgUEFTU0FNIE5PUk1BTE1FTlRFIFBBUkEgTyBUUkFFRklLDQogICAgbG9jYXRpb24gLyB7DQogICAgICAgIHByb3h5X3Bhc3MgaHR0cDovL3J1bnRpcGktcmV2ZXJzZS1wcm94eTo4MDsNCiAgICAgICAgcHJveHlfaHR0cF92ZXJzaW9uIDEuMTsNCiAgICAgICAgcHJveHlfc2V0X2hlYWRlciBVcGdyYWRlICRodHRwX3VwZ3JhZGU7DQogICAgICAgIHByb3h5X3NldF9oZWFkZXIgQ29ubmVjdGlvbiAidXBncmFkZSI7DQogICAgICAgIHByb3h5X3NldF9oZWFkZXIgSG9zdCAkaG9zdDsNCiAgICAgICAgcHJveHlfc2V0X2hlYWRlciBYLVJlYWwtSVAgJHJlbW90ZV9hZGRyOw0KICAgICAgICBwcm94eV9zZXRfaGVhZGVyIFgtRm9yd2FyZGVkLUZvciAkcHJveHlfYWRkX3hfZm9yd2FyZGVkX2ZvcjsNCiAgICAgICAgcHJveHlfc2V0X2hlYWRlciBYLUZvcndhcmRlZC1Qcm90byBodHRwczsNCiAgICB9DQp9}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ "$$ENABLE_NGINX_FILTER" = "true" ]; then
+          printf '%s' "$$NGINX_CONF_B64" | sed 's|^data:[^,]*,||' | tr -d ' \t\r\n' | base64 -d | tr -d '\r' > /etc/nginx/conf.d/default.conf
+          exec nginx -g 'daemon off;'
+        else
+          echo "ngrok-filtros disabled (ENABLE_NGINX_FILTER=$$ENABLE_NGINX_FILTER)"
+          trap 'exit 0' TERM INT
+          while :; do sleep 86400 & wait $$!; done
+        fi
+    networks:
+      - tipi_main_network
+
+  ngrok:
+    image: ngrok/ngrok:3.39.13-alpine
+    container_name: "${CONTAINER_NAME:-ngrok}"
+    restart: unless-stopped
+    depends_on:
+      - ngrok-filtros
+    ports:
+      - "${APP_PORT}:4040"
+    environment:
+      - TZ=${TZ}
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+      - NGROK_URL
+      - ENABLE_NGINX_FILTER=${ENABLE_NGINX_FILTER:-true}
+      - NGROK_TARGET
+      - FILTERS_TARGET=${FILTERS_CONTAINER_NAME:-ngrok-filtros}:80
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ "$$ENABLE_NGINX_FILTER" = "true" ]; then
+          TARGET="$$FILTERS_TARGET"
+        elif [ -n "$$NGROK_TARGET" ]; then
+          TARGET="$$NGROK_TARGET"
+        else
+          TARGET="80"
+        fi
+        if [ -n "$$NGROK_URL" ]; then
+          exec /entrypoint.sh http --url="$$NGROK_URL" "$$TARGET"
+        else
+          exec /entrypoint.sh http "$$TARGET"
+        fi
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "4040"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - tipi_main_network
+    x-runtipi:
+      is_main: true
+      internal_port: 4040
+
+networks:
+  tipi_main_network:
+    external: true

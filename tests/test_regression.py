@@ -39,6 +39,7 @@ Tracker:
 - REG-032: ImgCompress must pin karimz1/imgcompress version (never :latest), map ${APP_PORT}:5000 on host port 3001, keep optional env vars pass-through, and preserve healthcheck
 - REG-033: Pic Smaller must pin ghcr.io/murkbra/pic-smaller version matching config.json and CI workflow, map ${APP_PORT}:3000 on host port 3002, bump tipi_version >= 2, and preserve healthcheck
 - REG-034: Camoufox must pin ghcr.io/murkbra/camoufox matching config.json and CI workflow on slim Python without Selkies, keep essential 5-field UI, map ${APP_PORT}:9223, mask WS_TOKEN, and keep optional env vars pass-through
+- REG-035: Ngrok must pin ngrok/ngrok:3.39.13-alpine, expose 4040 via ${APP_PORT}:4040, mask NGROK_AUTHTOKEN, inline Base64 Nginx config without host default.conf mount, and allow toggling optional ngrok-filtros
 """
 
 import re
@@ -724,6 +725,35 @@ def test_reg_033_pic_smaller_pinned_ghcr_workflow_and_port_3002(repo_root, get_a
     assert "linux/amd64,linux/arm64" in wf_text
 
 
+def test_reg_035_ngrok_pinned_optional_filter_inline_base64_and_no_host_mount(get_app_config, get_app_compose):
+    """[REG-035] Ngrok must pin ngrok/ngrok version, map ${APP_PORT}:4040, mask NGROK_AUTHTOKEN,
+    configure optional ngrok-filtros via inline Base64 without host default.conf mount, and support direct target fallback."""
+    cfg = get_app_config("ngrok")
+    compose = get_app_compose("ngrok")
+
+    version = str(cfg.get("version", ""))
+    assert version and version != "latest"
+    assert cfg.get("port") == 4040
+
+    fields = {f["env_variable"]: f for f in cfg.get("form_fields", [])}
+    assert fields["NGROK_AUTHTOKEN"].get("type") == "password"
+    assert fields["NGROK_AUTHTOKEN"].get("required") is True
+    assert fields["ENABLE_NGINX_FILTER"].get("default") == "true"
+    for opt in ("NGROK_URL", "NGROK_TARGET", "NGINX_CONF_BASE64"):
+        assert fields[opt].get("required") is False
+        assert "default" not in fields[opt]
+
+    services = compose["services"]
+    ng = services["ngrok"]
+    flt = services["ngrok-filtros"]
+    assert ng.get("image") == f"ngrok/ngrok:{version}-alpine"
+    assert [str(p) for p in ng.get("ports", [])] == ["${APP_PORT}:4040"]
+    assert ng.get("x-runtipi", {}).get("internal_port") == 4040
+    assert "volumes" not in ng and "volumes" not in flt
+    assert "default.conf" not in " ".join(str(e) for e in flt.get("volumes", []))
+    assert "healthcheck" in ng
+
+
 def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo_root, get_app_config, get_app_compose):
     """[REG-034] Camoufox must pin ghcr.io/murkbra/camoufox matching config.json and requirements.txt
     on python:3.12-slim without Selkies VNC, keep only the 5 essential UI fields, expose port 9223, mask WS_TOKEN, and include healthcheck."""
@@ -766,6 +796,35 @@ def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo
     assert "selkies" not in req_text.lower()
     assert "steps.appver.outputs.version" in wf_text
     assert "linux/amd64,linux/arm64" in wf_text
+
+
+def test_reg_035_ngrok_pinned_optional_filter_inline_base64_and_no_host_mount(get_app_config, get_app_compose):
+    """[REG-035] Ngrok must pin ngrok/ngrok version, map ${APP_PORT}:4040, mask NGROK_AUTHTOKEN,
+    configure optional ngrok-filtros via inline Base64 without host default.conf mount, and support direct target fallback."""
+    cfg = get_app_config("ngrok")
+    compose = get_app_compose("ngrok")
+
+    version = str(cfg.get("version", ""))
+    assert version and version != "latest"
+    assert cfg.get("port") == 4040
+
+    fields = {f["env_variable"]: f for f in cfg.get("form_fields", [])}
+    assert fields["NGROK_AUTHTOKEN"].get("type") == "password"
+    assert fields["NGROK_AUTHTOKEN"].get("required") is True
+    assert fields["ENABLE_NGINX_FILTER"].get("default") == "true"
+    for opt in ("NGROK_URL", "NGROK_TARGET", "NGINX_CONF_BASE64"):
+        assert fields[opt].get("required") is False
+        assert "default" not in fields[opt]
+
+    services = compose["services"]
+    ng = services["ngrok"]
+    flt = services["ngrok-filtros"]
+    assert ng.get("image") == f"ngrok/ngrok:{version}-alpine"
+    assert [str(p) for p in ng.get("ports", [])] == ["${APP_PORT}:4040"]
+    assert ng.get("x-runtipi", {}).get("internal_port") == 4040
+    assert "volumes" not in ng and "volumes" not in flt
+    assert "default.conf" not in " ".join(str(e) for e in flt.get("volumes", []))
+    assert "healthcheck" in ng
 
 
 

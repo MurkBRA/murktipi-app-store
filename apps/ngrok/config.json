@@ -1,0 +1,84 @@
+{
+  "$schema": "https://raw.githubusercontent.com/runtipi/runtipi-docs/main/src/content/docs/reference/app-config.schema.json",
+  "id": "ngrok",
+  "name": "Ngrok",
+  "port": 4040,
+  "available": true,
+  "categories": ["network", "utilities", "development"],
+  "description": "Official Ngrok tunnel agent (ngrok/ngrok:3.39.13-alpine) with web inspection dashboard on port 4040 and an optional Nginx filter sidecar (ngrok-filtros) configured via inline Base64 without host file mounts to serve 404 on / while forwarding routes to Runtipi's Traefik reverse proxy.",
+  "short_desc": "Ngrok tunnel agent with optional Nginx root-404 Traefik filter",
+  "author": "ngrok",
+  "tipi_version": 1,
+  "version": "3.39.13",
+  "source": "https://github.com/ngrok",
+  "website": "https://ngrok.com",
+  "exposable": true,
+  "dynamic_config": true,
+  "supported_architectures": ["amd64", "arm64"],
+  "form_fields": [
+    {
+      "type": "password",
+      "label": "NGROK_AUTHTOKEN",
+      "hint": "Ngrok authentication token from your Ngrok dashboard.",
+      "env_variable": "NGROK_AUTHTOKEN",
+      "required": true
+    },
+    {
+      "type": "text",
+      "label": "NGROK_URL",
+      "hint": "Optional static domain or tunnel URL (--url), such as my-url.ngrok-free.dev. Leave blank to let Ngrok assign an ephemeral URL.",
+      "placeholder": "my-url.ngrok-free.dev",
+      "env_variable": "NGROK_URL",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "ENABLE_NGINX_FILTER",
+      "hint": "Enable the optional ngrok-filtros Nginx sidecar (tunnels to ngrok-filtros:80, returns 404 on /, and proxies other paths to runtipi-reverse-proxy:80). Disable to tunnel directly to NGROK_TARGET. Default: true.",
+      "env_variable": "ENABLE_NGINX_FILTER",
+      "default": "true",
+      "required": true,
+      "options": [
+        { "label": "Enabled — filter via ngrok-filtros:80 (Default)", "value": "true" },
+        { "label": "Disabled — direct tunnel to NGROK_TARGET", "value": "false" }
+      ]
+    },
+    {
+      "type": "text",
+      "label": "NGROK_TARGET",
+      "hint": "Target port or host:port (for example 80, 8080, or container:8080) used when ngrok-filtros is disabled. Leave blank to default to 80.",
+      "placeholder": "8080",
+      "env_variable": "NGROK_TARGET",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "NGINX_CONF_BASE64",
+      "hint": "Optional Base64 or data:application/octet-stream;base64,... Nginx server block used when ngrok-filtros is enabled. Leave blank to use the built-in 404 root filter and Traefik proxy.",
+      "env_variable": "NGINX_CONF_BASE64",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "container_name",
+      "hint": "Custom Docker container name for the Ngrok agent. Default: ngrok (if left blank, falls back to ngrok).",
+      "placeholder": "ngrok",
+      "regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]+$",
+      "pattern_error": "Must start with a letter or number and contain at least 2 characters (letters, numbers, '.', '_' or '-').",
+      "env_variable": "CONTAINER_NAME",
+      "default": "ngrok",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "filters_container_name",
+      "hint": "Custom Docker container name for the optional Nginx filter sidecar. Default: ngrok-filtros (if left blank, falls back to ngrok-filtros).",
+      "placeholder": "ngrok-filtros",
+      "regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]+$",
+      "pattern_error": "Must start with a letter or number and contain at least 2 characters (letters, numbers, '.', '_' or '-').",
+      "env_variable": "FILTERS_CONTAINER_NAME",
+      "default": "ngrok-filtros",
+      "required": false
+    }
+  ]
+}
