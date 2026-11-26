@@ -1,0 +1,42 @@
+#!/lsiopy/bin/python -u
+"""Desktop launcher for standalone anti-detect Camoufox browsing inside Selkies."""
+
+from __future__ import annotations
+
+import os
+import sys
+import time
+
+sys.path.insert(0, "/app")
+from config_builder import build_camoufox_kwargs, parse_bool_env  # noqa: E402
+from camoufox.sync_api import Camoufox  # noqa: E402
+
+
+def main() -> int:
+    os.environ["GDK_BACKEND"] = "x11"
+    os.environ["MOZ_ENABLE_WAYLAND"] = "0"
+    display = os.environ.get("DISPLAY") or ":1"
+
+    kwargs = build_camoufox_kwargs(virtual_display_override=display)
+    for k in ("host", "port", "ws_path"):
+        kwargs.pop(k, None)
+
+    profile_dir = os.environ.get("CAMOUFOX_PROFILE_DIR") or "/config/browser-profile"
+    os.makedirs(profile_dir, exist_ok=True)
+    kwargs["persistent_context"] = True
+    kwargs["user_data_dir"] = profile_dir
+    kwargs["headless"] = False
+
+    if parse_bool_env(os.environ.get("GEOIP")):
+        kwargs["geoip"] = True
+
+    with Camoufox(**kwargs) as context:
+        if not context.pages:
+            context.new_page()
+        while len(context.pages) > 0:
+            time.sleep(0.5)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

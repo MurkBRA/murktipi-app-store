@@ -1,4 +1,4 @@
-"""Supervisor entrypoint launching Xvfb, Openbox, Selkies viewer, Camoufox Playwright server, and proxy."""
+"""Supervisor running Camoufox Playwright server + proxy inside LSIO baseimage-selkies."""
 
 from __future__ import annotations
 
@@ -23,8 +23,7 @@ from camoufox.fpgen_model import ensure_fpgen_model
 from camoufox.geolocation import download_mmdb, get_mmdb_path, needs_update
 from camoufox.pkgman import CamoufoxFetcher, camoufox_path
 from camoufox.server import LAUNCH_SCRIPT, get_nodejs, to_camel_case_dict
-from camoufox.utils import launch_options, start_virtual_display
-from camoufox.virtdisplay import VirtualDisplay
+from camoufox.utils import launch_options
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -36,62 +35,123 @@ from config_builder import (
     parse_headless_env,
     parse_slim_fonts,
     parse_viewer_enabled,
-    parse_viewer_resolution,
 )
 
 _STOPPING = False
-_SHARED_DISPLAY = ":99"
-_DISPLAY_SOCKET = "/tmp/.X11-unix/X99"
 _DEFAULT_TLS_DIR = Path("/tmp/camoufox-tls")
 _BOOTSTRAP_STATUS_FILE = Path(os.environ.get("BOOTSTRAP_STATUS_FILE") or "/tmp/camoufox-bootstrap.json")
 _SLIM_FONT_MAX_BYTES = 5 * 1024 * 1024
 _FONT_SUFFIXES = {".ttf", ".ttc", ".otf", ".woff", ".woff2"}
 
 
-def _chown_tree_if_needed(root: Path, uid: int, gid: int) -> None:
-    if not root.exists():
+def _stop_process(proc: Optional[subprocess.Popen], close_stdin: bool = False) -> None:
+    if proc is None:
+        return
+    if close_stdin and proc.stdin and not proc.stdin.closed:
+        try:
+            proc.stdin.close()
+        except OSError:
+            pass
+    if proc.poll() is not None:
         return
     try:
-        st = root.lstat()
-        if st.st_uid != uid or st.st_gid != gid:
-            os.chown(root, uid, gid)
-    except OSError:
-        pass
-    for dirpath, dirnames, filenames in os.walk(root):
-        for name in (*dirnames, *filenames):
-            p = Path(dirpath) / name
-            try:
-                st = p.lstat()
-                if st.st_uid != uid or st.st_gid != gid:
-                    os.chown(p, uid, gid)
-            except OSError:
-                pass
-
-
-def _drop_privileges_if_root() -> None:
-    """Fix bind-mounted cache permissions and drop root privileges to the 'camoufox' user."""
-    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        proc.wait(timeout=10)
         return
-    import pwd
-
-    pw = pwd.getpwnam("camoufox")
-    cache_root = Path(os.environ.get("XDG_CACHE_HOME") or "/opt/camoufox-cache")
-    cache_root.mkdir(parents=True, exist_ok=True)
-    x11_unix = Path("/tmp/.X11-unix")
-    x11_unix.mkdir(parents=True, exist_ok=True)
-    try:
-        os.chmod(x11_unix, 0o1777)
-    except OSError:
+    except subprocess.TimeoutExpired:
         pass
-    _chown_tree_if_needed(cache_root, pw.pw_uid, pw.pw_gid)
-    _chown_tree_if_needed(Path(pw.pw_dir), pw.pw_uid, pw.pw_gid)
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
 
-    os.initgroups(pw.pw_name, pw.pw_gid)
-    os.setgid(pw.pw_gid)
-    os.setuid(pw.pw_uid)
-    os.environ["HOME"] = pw.pw_dir
-    os.environ["USER"] = pw.pw_name
-    os.environ["LOGNAME"] = pw.pw_name
+
+def _wait_for_x11_display(display: str, timeout_s: float = 30.0) -> None:
+    display_num = display.lstrip(":").split(".")[0] or "1"
+    sock_path = f"/tmp/.X11-unix/X{display_num}"
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline and not _STOPPING:
+        if os.path.exists(sock_path):
+            with socket.socket(socket.AF_UNIX) as sock:
+                try:
+                    sock.connect(sock_path)
+                    return
+                except OSError:
+                    pass
+        time.sleep(0.2)
+    if not _STOPPING:
+        print(f"[camoufox-supervisor] Warning: X11 socket {sock_path} not ready after {timeout_s}s", flush=True)
+
+
+def _ensure_tls_cert() -> tuple[str, str]:
+    """Use LSIO Nginx SSL cert (/config/ssl/cert.pem) when available, else generate a self-signed SAN cert."""
+    for cert_cand, key_cand in (
+        ((os.environ.get("TLS_CERT_PATH") or "").strip(), (os.environ.get("TLS_KEY_PATH") or "").strip()),
+        ("/config/ssl/cert.pem", "/config/ssl/cert.key"),
+    ):
+        if cert_cand and key_cand and os.path.isfile(cert_cand) and os.path.isfile(key_cand):
+            return cert_cand, key_cand
+
+    cert_path = _DEFAULT_TLS_DIR / "cert.pem"
+    key_path = _DEFAULT_TLS_DIR / "key.pem"
+    if cert_path.is_file() and key_path.is_file():
+        return str(cert_path), str(key_path)
+
+    _DEFAULT_TLS_DIR.mkdir(parents=True, exist_ok=True)
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+    san_entries: list[x509.GeneralName] = [
+        x509.DNSName("localhost"),
+        x509.IPAddress(ipaddress.ip_address("127.0.0.1")),
+        x509.IPAddress(ipaddress.ip_address("::1")),
+    ]
+    seen_dns = {"localhost"}
+    seen_ips = {"127.0.0.1", "::1"}
+
+    hostname = socket.gethostname().strip()
+    if hostname and hostname not in seen_dns:
+        seen_dns.add(hostname)
+        san_entries.append(x509.DNSName(hostname))
+
+    extra_hosts = [h.strip() for h in (os.environ.get("TLS_HOSTS") or "").split(",") if h.strip()]
+    for host in extra_hosts:
+        try:
+            ip_obj = ipaddress.ip_address(host)
+            if str(ip_obj) not in seen_ips:
+                seen_ips.add(str(ip_obj))
+                san_entries.append(x509.IPAddress(ip_obj))
+        except ValueError:
+            if host not in seen_dns:
+                seen_dns.add(host)
+                san_entries.append(x509.DNSName(host))
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "camoufox")])
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - datetime.timedelta(days=1))
+        .not_valid_after(now + datetime.timedelta(days=3650))
+        .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+        .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+        .add_extension(x509.SubjectAlternativeName(san_entries), critical=False)
+        .sign(key, hashes.SHA256())
+    )
+
+    key_path.write_bytes(
+        key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    )
+    os.chmod(key_path, 0o600)
+    cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    return str(cert_path), str(key_path)
 
 
 def _write_bootstrap_status(phase: str, message: str) -> None:
@@ -130,7 +190,7 @@ def _prune_large_fonts(browser_dir: Path, max_bytes: int = _SLIM_FONT_MAX_BYTES)
 
 
 def _ensure_camoufox_runtime() -> bool:
-    """Ensure the pinned Camoufox browser (and optional GeoIP DB) exists in /opt/camoufox-cache."""
+    """Ensure the pinned Camoufox browser (and optional GeoIP DB) exists in /config/.cache."""
     try:
         browser_dir = Path(camoufox_path(download_if_missing=False))
         print(f"[camoufox-supervisor] Using cached Camoufox browser at {browser_dir}", flush=True)
@@ -142,7 +202,7 @@ def _ensure_camoufox_runtime() -> bool:
                 return False
             _write_bootstrap_status(
                 "downloading",
-                "First-run setup: downloading Camoufox browser (~1.2 GB) into persistent cache (/opt/camoufox-cache)...",
+                "First-run setup: downloading Camoufox browser (~1.2 GB) into persistent cache (/config/.cache)...",
             )
             print(
                 f"[camoufox-supervisor] Camoufox browser not cached; downloading pinned build (attempt {attempt + 1})...",
@@ -172,253 +232,32 @@ def _ensure_camoufox_runtime() -> bool:
     if parse_bool_env(os.environ.get("GEOIP")):
         mmdb_path = get_mmdb_path()
         if not mmdb_path.exists() or needs_update():
-            _write_bootstrap_status("downloading", "Downloading GeoIP database into persistent cache...")
+            _write_bootstrap_status("downloading", "Downloading GeoIP database into /config/.cache...")
             print("[camoufox-supervisor] Fetching GeoIP database on demand...", flush=True)
             download_mmdb()
 
     return True
 
 
-def _ensure_tls_cert() -> tuple[str, str]:
-    """Return paths to TLS cert and key PEM files, generating a self-signed SAN cert if needed."""
-    env_cert = (os.environ.get("TLS_CERT_PATH") or "").strip()
-    env_key = (os.environ.get("TLS_KEY_PATH") or "").strip()
-    if env_cert and env_key and os.path.isfile(env_cert) and os.path.isfile(env_key):
-        return env_cert, env_key
-
-    cert_path = _DEFAULT_TLS_DIR / "cert.pem"
-    key_path = _DEFAULT_TLS_DIR / "key.pem"
-    if cert_path.is_file() and key_path.is_file():
-        return str(cert_path), str(key_path)
-
-    _DEFAULT_TLS_DIR.mkdir(parents=True, exist_ok=True)
-    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-
-    san_entries: list[x509.GeneralName] = [
-        x509.DNSName("localhost"),
-        x509.IPAddress(ipaddress.ip_address("127.0.0.1")),
-        x509.IPAddress(ipaddress.ip_address("::1")),
-    ]
-    seen_dns = {"localhost"}
-    seen_ips = {"127.0.0.1", "::1"}
-
-    hostname = socket.gethostname().strip()
-    if hostname and hostname not in seen_dns:
-        seen_dns.add(hostname)
-        san_entries.append(x509.DNSName(hostname))
-
-    extra_hosts = [h.strip() for h in (os.environ.get("TLS_HOSTS") or "").split(",") if h.strip()]
-    for host in extra_hosts:
-        try:
-            ip_obj = ipaddress.ip_address(host)
-            if str(ip_obj) not in seen_ips:
-                seen_ips.add(str(ip_obj))
-                san_entries.append(x509.IPAddress(ip_obj))
-        except ValueError:
-            if host not in seen_dns:
-                seen_dns.add(host)
-                san_entries.append(x509.DNSName(host))
-
-    try:
-        for info in socket.getaddrinfo(hostname or None, None):
-            addr = info[4][0].split("%", 1)[0]
-            try:
-                ip_obj = ipaddress.ip_address(addr)
-                if str(ip_obj) not in seen_ips:
-                    seen_ips.add(str(ip_obj))
-                    san_entries.append(x509.IPAddress(ip_obj))
-            except ValueError:
-                pass
-    except OSError:
-        pass
-
-    now = datetime.datetime.now(datetime.timezone.utc)
-    subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "camoufox")])
-    cert = (
-        x509.CertificateBuilder()
-        .subject_name(subject)
-        .issuer_name(issuer)
-        .public_key(key.public_key())
-        .serial_number(x509.random_serial_number())
-        .not_valid_before(now - datetime.timedelta(days=1))
-        .not_valid_after(now + datetime.timedelta(days=3650))
-        .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
-        .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
-        .add_extension(x509.SubjectAlternativeName(san_entries), critical=False)
-        .sign(key, hashes.SHA256())
-    )
-
-    key_path.write_bytes(
-        key.private_bytes(
-            serialization.Encoding.PEM,
-            serialization.PrivateFormat.PKCS8,
-            serialization.NoEncryption(),
-        )
-    )
-    os.chmod(key_path, 0o600)
-    cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
-    return str(cert_path), str(key_path)
-
-
-def _stop_process(proc: Optional[subprocess.Popen], close_stdin: bool = False) -> None:
-    if proc is None:
-        return
-    if close_stdin and proc.stdin and not proc.stdin.closed:
-        try:
-            proc.stdin.close()
-        except OSError:
-            pass
-    if proc.poll() is not None:
-        return
-    try:
-        proc.wait(timeout=10)
-        return
-    except subprocess.TimeoutExpired:
-        pass
-    proc.terminate()
-    try:
-        proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        proc.wait()
-
-
-def _wait_for_unix_socket(sock_path: str, proc: subprocess.Popen, timeout_s: float = 20.0) -> None:
-    deadline = time.monotonic() + timeout_s
-    while time.monotonic() < deadline:
-        if proc.poll() is not None:
-            raise RuntimeError(f"Xvfb exited unexpectedly with code {proc.returncode}")
-        if os.path.exists(sock_path):
-            with socket.socket(socket.AF_UNIX) as sock:
-                try:
-                    sock.connect(sock_path)
-                    return
-                except OSError:
-                    pass
-        time.sleep(0.15)
-    raise RuntimeError(f"Timed out waiting for X11 socket {sock_path}")
-
-
-def _start_shared_xvfb() -> subprocess.Popen:
-    xvfb_bin = shutil.which("Xvfb")
-    if not xvfb_bin:
-        raise RuntimeError("Xvfb binary not found in PATH")
-    env = os.environ.copy()
-    env["__GLX_VENDOR_LIBRARY_NAME"] = "mesa"
-    env["LIBGL_ALWAYS_SOFTWARE"] = "1"
-    proc = subprocess.Popen(
-        [
-            xvfb_bin,
-            _SHARED_DISPLAY,
-            "-screen",
-            "0",
-            "8192x4096x24",
-            "-ac",
-            "+extension",
-            "GLX",
-            "+extension",
-            "RANDR",
-            "-nolisten",
-            "tcp",
-            "-noreset",
-            "-s",
-            "0",
-            "-dpms",
-        ],
-        env=env,
-        stdout=sys.stdout,
-        stderr=sys.stderr,
-    )
-    _wait_for_unix_socket(_DISPLAY_SOCKET, proc)
-    return proc
-
-
-def _configure_display_resolution(display_env: dict[str, str], width: int, height: int) -> None:
-    try:
-        subprocess.run(
-            [sys.executable, "-m", "selkies", "resize", f"{width}x{height}"],
-            env=display_env,
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            timeout=20,
-        )
-    except Exception as exc:
-        print(f"[camoufox-supervisor] Warning: initial selkies resize failed: {exc}", flush=True)
-
-
-def _start_openbox(display_env: dict[str, str]) -> Optional[subprocess.Popen]:
-    openbox_bin = shutil.which("openbox")
-    if not openbox_bin:
-        print("[camoufox-supervisor] Warning: openbox not found; starting without window manager", flush=True)
-        return None
-    if shutil.which("xsetroot"):
-        subprocess.run(["xsetroot", "-solid", "#0b1120"], env=display_env, check=False)
-    return subprocess.Popen(
-        [openbox_bin],
-        env=display_env,
-        stdout=sys.stdout,
-        stderr=sys.stderr,
-    )
-
-
-def _start_selkies(display_env: dict[str, str], selkies_port: int) -> subprocess.Popen:
-    return subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "selkies",
-            "--addr",
-            "127.0.0.1",
-            "--port",
-            str(selkies_port),
-            "--subfolder",
-            "/viewer",
-            "--enable-basic-auth=false",
-            "--enable-https=false",
-            "--audio-enabled=false",
-            "--gamepad-enabled=false",
-            "--printing-enabled=false",
-            "--ui-title",
-            "Camoufox Live Viewer",
-        ],
-        env=display_env,
-        stdout=sys.stdout,
-        stderr=sys.stderr,
-    )
-
-
-def _launch_camoufox_once(
-    shared_display: Optional[str] = None,
-) -> tuple[subprocess.Popen, Optional[VirtualDisplay]]:
+def _launch_camoufox_once(shared_display: Optional[str]) -> subprocess.Popen:
     kwargs = build_camoufox_kwargs(virtual_display_override=shared_display)
-    virtual_display: Optional[VirtualDisplay] = None
-    if not shared_display:
-        virtual_display, kwargs["headless"] = start_virtual_display(
-            kwargs.get("headless"), False, kwargs
-        )
-    try:
-        config = launch_options(**kwargs)
-        nodejs = get_nodejs()
-        driver_package = Path(nodejs).parent / "package"
-        payload = base64.b64encode(orjson.dumps(to_camel_case_dict(config))).decode() + "\n"
+    config = launch_options(**kwargs)
+    nodejs = get_nodejs()
+    driver_package = Path(nodejs).parent / "package"
+    payload = base64.b64encode(orjson.dumps(to_camel_case_dict(config))).decode() + "\n"
 
-        proc = subprocess.Popen(
-            [nodejs, str(LAUNCH_SCRIPT), str(driver_package)],
-            cwd=driver_package,
-            stdin=subprocess.PIPE,
-            stdout=sys.stdout,
-            stderr=sys.stderr,
-            text=True,
-        )
-        assert proc.stdin is not None
-        proc.stdin.write(payload)
-        proc.stdin.flush()
-        return proc, virtual_display
-    except BaseException:
-        if virtual_display:
-            virtual_display.kill()
-        raise
+    proc = subprocess.Popen(
+        [nodejs, str(LAUNCH_SCRIPT), str(driver_package)],
+        cwd=driver_package,
+        stdin=subprocess.PIPE,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        text=True,
+    )
+    assert proc.stdin is not None
+    proc.stdin.write(payload)
+    proc.stdin.flush()
+    return proc
 
 
 def main() -> int:
@@ -432,64 +271,47 @@ def main() -> int:
     signal.signal(signal.SIGTERM, handle_signal)
     signal.signal(signal.SIGINT, handle_signal)
 
-    _drop_privileges_if_root()
-    _write_bootstrap_status("starting", "Initializing Camoufox proxy...")
+    os.environ.setdefault("XDG_CACHE_HOME", "/config/.cache")
+    os.environ["GDK_BACKEND"] = "x11"
+    os.environ["MOZ_ENABLE_WAYLAND"] = "0"
 
     viewer_enabled = parse_viewer_enabled()
     headless_mode = parse_headless_env(os.environ.get("HEADLESS"))
-    selkies_port = int((os.environ.get("SELKIES_PORT") or "8080").strip())
+    display = os.environ.get("DISPLAY") or ":1"
+    shared_display = display if (viewer_enabled and headless_mode is not True) else None
 
-    nodejs = get_nodejs()
+    _write_bootstrap_status("starting", "Initializing Camoufox proxy...")
+
+    node_bin = shutil.which("node") or get_nodejs()
     proxy_script = Path(__file__).resolve().with_name("proxy.mjs")
     proxy_env = os.environ.copy()
     proxy_env["VIEWER_ACTIVE"] = "true" if viewer_enabled else "false"
-    proxy_env["SELKIES_PORT"] = str(selkies_port)
     proxy_env["BOOTSTRAP_STATUS_FILE"] = str(_BOOTSTRAP_STATUS_FILE)
     try:
         cert_path, key_path = _ensure_tls_cert()
         proxy_env["TLS_CERT_PATH"] = cert_path
         proxy_env["TLS_KEY_PATH"] = key_path
     except Exception as exc:
-        print(f"[camoufox-supervisor] Warning: TLS cert generation failed ({exc}); serving HTTP only", flush=True)
+        print(f"[camoufox-supervisor] Warning: TLS cert lookup/generation failed ({exc}); HTTP only on 9223", flush=True)
     try:
         proxy_env.setdefault("CAMOUFOX_LIB_VERSION", importlib.metadata.version("camoufox"))
     except importlib.metadata.PackageNotFoundError:
         pass
 
     proxy_proc = subprocess.Popen(
-        [nodejs, str(proxy_script)],
+        [node_bin, str(proxy_script)],
         env=proxy_env,
         stdout=sys.stdout,
         stderr=sys.stderr,
     )
 
-    xvfb_proc: Optional[subprocess.Popen] = None
-    openbox_proc: Optional[subprocess.Popen] = None
-    selkies_proc: Optional[subprocess.Popen] = None
     camoufox_proc: Optional[subprocess.Popen] = None
-    virtual_display: Optional[VirtualDisplay] = None
-    display_env = os.environ.copy()
-    shared_display: Optional[str] = None
-
     try:
         if not _ensure_camoufox_runtime() or _STOPPING:
             return 0
-        _write_bootstrap_status("starting", "Starting display server and Camoufox...")
-
-        if viewer_enabled and headless_mode is not True:
-            width, height = parse_viewer_resolution()
-            print(f"[camoufox-supervisor] Starting Xvfb {_SHARED_DISPLAY} ({width}x{height}) + Selkies...", flush=True)
-            xvfb_proc = _start_shared_xvfb()
-            shared_display = _SHARED_DISPLAY
-            display_env = os.environ.copy()
-            display_env["DISPLAY"] = _SHARED_DISPLAY
-            display_env["GDK_BACKEND"] = "x11"
-            display_env["MOZ_ENABLE_WAYLAND"] = "0"
-            display_env["__GLX_VENDOR_LIBRARY_NAME"] = "mesa"
-            display_env["LIBGL_ALWAYS_SOFTWARE"] = "1"
-            _configure_display_resolution(display_env, width, height)
-            openbox_proc = _start_openbox(display_env)
-            selkies_proc = _start_selkies(display_env, selkies_port)
+        if shared_display:
+            _wait_for_x11_display(shared_display)
+        _write_bootstrap_status("starting", "Starting Camoufox Playwright server...")
 
         while not _STOPPING:
             if proxy_proc.poll() is not None:
@@ -498,30 +320,11 @@ def main() -> int:
                     flush=True,
                 )
                 proxy_proc = subprocess.Popen(
-                    [nodejs, str(proxy_script)],
+                    [node_bin, str(proxy_script)],
                     env=proxy_env,
                     stdout=sys.stdout,
                     stderr=sys.stderr,
                 )
-
-            if shared_display and xvfb_proc is not None and xvfb_proc.poll() is not None:
-                print("[camoufox-supervisor] Xvfb exited unexpectedly, restarting display stack...", flush=True)
-                _stop_process(selkies_proc)
-                _stop_process(openbox_proc)
-                xvfb_proc = _start_shared_xvfb()
-                width, height = parse_viewer_resolution()
-                _configure_display_resolution(display_env, width, height)
-                openbox_proc = _start_openbox(display_env)
-                selkies_proc = _start_selkies(display_env, selkies_port)
-
-            if shared_display and selkies_proc is not None and selkies_proc.poll() is not None:
-                print(
-                    f"[camoufox-supervisor] Selkies exited ({selkies_proc.returncode}), restarting in 2s...",
-                    flush=True,
-                )
-                time.sleep(2)
-                if not _STOPPING:
-                    selkies_proc = _start_selkies(display_env, selkies_port)
 
             if camoufox_proc is None or camoufox_proc.poll() is not None:
                 if camoufox_proc is not None:
@@ -529,24 +332,16 @@ def main() -> int:
                         f"[camoufox-supervisor] Camoufox server exited ({camoufox_proc.returncode}), restarting in 2s...",
                         flush=True,
                     )
-                    if virtual_display:
-                        virtual_display.kill()
-                        virtual_display = None
                     time.sleep(2)
                     if _STOPPING:
                         break
                 print("[camoufox-supervisor] Launching Camoufox Playwright server...", flush=True)
-                camoufox_proc, virtual_display = _launch_camoufox_once(shared_display=shared_display)
+                camoufox_proc = _launch_camoufox_once(shared_display=shared_display)
                 _write_bootstrap_status("ready", "Ready")
 
             time.sleep(0.5)
     finally:
         _stop_process(camoufox_proc, close_stdin=True)
-        if virtual_display:
-            virtual_display.kill()
-        _stop_process(selkies_proc)
-        _stop_process(openbox_proc)
-        _stop_process(xvfb_proc)
         _stop_process(proxy_proc)
 
     return 0

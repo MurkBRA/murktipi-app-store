@@ -1,0 +1,14 @@
+#!/usr/bin/with-contenv bash
+
+if [[ "${HEADLESS,,}" != "true" ]]; then
+  echo "[svc-camoufox] Waiting for X11 display ${DISPLAY:-:1}..."
+  until s6-setuidgid abc with-contenv xset q >/dev/null 2>&1; do
+    sleep 0.5
+  done
+fi
+
+mkdir -p /config/.cache
+chown abc:abc /config/.cache
+
+exec s6-setuidgid abc \
+  /lsiopy/bin/python -u /app/server.py

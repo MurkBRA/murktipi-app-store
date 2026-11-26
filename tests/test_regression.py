@@ -726,37 +726,76 @@ def test_reg_033_pic_smaller_pinned_ghcr_workflow_and_port_3002(repo_root, get_a
 
 def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo_root, get_app_config, get_app_compose):
     """[REG-034] Camoufox must pin ghcr.io/murkbra/camoufox matching config.json and requirements.txt,
-    map ${APP_PORT}:9223, mask WS_TOKEN/PROXY_PASSWORD, keep optional env vars pass-through, and include healthcheck."""
+    integrate LSIO baseimage-selkies (:3003 UI + :9223 Playwright), mask secrets, and include healthcheck."""
     cfg = get_app_config("camoufox")
     compose = get_app_compose("camoufox")
     wf_text = (repo_root / ".github" / "workflows" / "docker-camoufox.yml").read_text(encoding="utf-8")
 
     version = str(cfg.get("version", ""))
     assert version and version != "latest", "[REG-034] Camoufox version must not be 'latest'"
-    assert cfg.get("port") == 9223
+    assert cfg.get("port") == 3003
+    assert cfg.get("https") is True
 
     fields = {f["env_variable"]: f for f in cfg.get("form_fields", [])}
     assert "TZ" not in fields
+    assert fields["PASSWORD"].get("type") == "password"
     assert fields["WS_TOKEN"].get("type") == "password"
     assert fields["PROXY_PASSWORD"].get("type") == "password"
-    for var in ("ENABLE_VIEWER", "VIEWER_RESOLUTION", "SLIM_FONTS", "WS_TOKEN", "GEOIP", "OS_TARGET", "LOCALE", "BLOCK_IMAGES", "BLOCK_WEBRTC", "DISABLE_COOP", "PROXY_SERVER", "PROXY_USERNAME", "PROXY_PASSWORD", "SHM_SIZE"):
+    for var in (
+        "PUID",
+        "PGID",
+        "CUSTOM_USER",
+        "PASSWORD",
+        "AUTOSTART_BROWSER",
+        "SLIM_FONTS",
+        "WS_TOKEN",
+        "GEOIP",
+        "OS_TARGET",
+        "LOCALE",
+        "BLOCK_IMAGES",
+        "BLOCK_WEBRTC",
+        "DISABLE_COOP",
+        "PROXY_SERVER",
+        "PROXY_USERNAME",
+        "PROXY_PASSWORD",
+        "SHM_SIZE",
+    ):
         assert fields[var].get("required") is False
         assert "default" not in fields[var]
 
     svc = compose["services"]["camoufox"]
     assert svc.get("image") == f"ghcr.io/murkbra/camoufox:{version}"
     assert svc.get("container_name") == "${CONTAINER_NAME:-camoufox}"
-    assert svc.get("shm_size") == "${SHM_SIZE:-256m}"
-    assert cfg.get("tipi_version", 0) >= 4
-    assert "${APP_PORT}:9223" in [str(p) for p in svc.get("ports", [])]
-    assert "${APP_DATA_DIR}/data/camoufox-cache:/opt/camoufox-cache" in [str(v) for v in svc.get("volumes", [])]
-    assert svc.get("x-runtipi", {}).get("internal_port") == 9223
+    assert svc.get("shm_size") == "${SHM_SIZE:-1gb}"
+    assert cfg.get("tipi_version", 0) >= 5
+    ports = [str(p) for p in svc.get("ports", [])]
+    assert "${APP_PORT}:3003" in ports and "9223:9223" in ports
+    assert "${APP_DATA_DIR}/data/config:/config" in [str(v) for v in svc.get("volumes", [])]
+    assert svc.get("x-runtipi", {}).get("internal_port") == 3003
     assert "healthcheck" in svc
     env = [str(e) for e in svc.get("environment", [])]
     assert "HEADLESS=${HEADLESS:-virtual}" in env and "TZ=${TZ}" in env
-    for var in ("ENABLE_VIEWER", "VIEWER_RESOLUTION", "SLIM_FONTS", "WS_TOKEN", "GEOIP", "OS_TARGET", "LOCALE", "BLOCK_IMAGES", "BLOCK_WEBRTC", "DISABLE_COOP", "PROXY_SERVER", "PROXY_USERNAME", "PROXY_PASSWORD"):
+    for var in (
+        "PUID",
+        "PGID",
+        "CUSTOM_USER",
+        "PASSWORD",
+        "AUTOSTART_BROWSER",
+        "SLIM_FONTS",
+        "WS_TOKEN",
+        "GEOIP",
+        "OS_TARGET",
+        "LOCALE",
+        "BLOCK_IMAGES",
+        "BLOCK_WEBRTC",
+        "DISABLE_COOP",
+        "PROXY_SERVER",
+        "PROXY_USERNAME",
+        "PROXY_PASSWORD",
+    ):
         assert var in env
     df_text = (repo_root / "packages" / "camoufox" / "Dockerfile").read_text(encoding="utf-8")
+    assert "FROM ghcr.io/linuxserver/baseimage-selkies:debiantrixie" in df_text
     assert "camoufox fetch" not in df_text
     assert "ensure_fpgen_model" in df_text
     assert "selkies==" in (repo_root / "packages" / "camoufox" / "requirements.txt").read_text(encoding="utf-8")
