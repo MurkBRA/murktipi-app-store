@@ -12,8 +12,9 @@ WORKDIR /app
 
 COPY requirements.txt /app/requirements.txt
 
-RUN pip install --no-cache-dir -r /app/requirements.txt \
-    && python -m playwright install-deps firefox \
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+RUN python -m playwright install-deps firefox \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         xvfb \
@@ -24,7 +25,10 @@ RUN pip install --no-cache-dir -r /app/requirements.txt \
         util-linux \
         libgl1 \
         libgl1-mesa-dri \
-    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
+    if [ -s /run/secrets/GITHUB_TOKEN ]; then export GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN)"; fi \
     && groupadd --system camoufox \
     && useradd --system --gid camoufox --create-home --home-dir /home/camoufox camoufox \
     && mkdir -p /opt/camoufox-cache \
