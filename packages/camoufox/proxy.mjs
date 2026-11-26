@@ -10,6 +10,7 @@ const INTERNAL_HOST = "127.0.0.1";
 const INTERNAL_PORT = Number(process.env.INTERNAL_WS_PORT || "9224");
 const INTERNAL_WS_PATH = ensureLeadingSlash(process.env.INTERNAL_WS_PATH || "/camoufox");
 const SELKIES_PORT = Number(process.env.SELKIES_PORT || "8080");
+const BOOTSTRAP_STATUS_FILE = (process.env.BOOTSTRAP_STATUS_FILE || "").trim();
 const TLS_CERT_PATH = (process.env.TLS_CERT_PATH || "").trim();
 const TLS_KEY_PATH = (process.env.TLS_KEY_PATH || "").trim();
 const VIEWER_PREFIX = "/viewer";
@@ -199,7 +200,18 @@ function escapeHtml(text) {
     .replaceAll('"', "&quot;");
 }
 
-function renderStatusHtml(req, ready, viewerReady) {
+function readBootstrapStatus() {
+  if (!BOOTSTRAP_STATUS_FILE) return null;
+  try {
+    const raw = fs.readFileSync(BOOTSTRAP_STATUS_FILE, "utf8");
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function renderStatusHtml(req, ready, viewerReady, bootstrap) {
   const rawHost = req.headers.host || `localhost:${PORT}`;
   const hostHeader = escapeHtml(rawHost);
   const secure = isSecureTransport(req);
@@ -209,8 +221,14 @@ function renderStatusHtml(req, ready, viewerReady) {
   const publicPath = WS_TOKEN ? "/<WS_TOKEN>" : INTERNAL_WS_PATH;
   const wsScheme = secure ? "wss" : "ws";
   const wsExample = `${wsScheme}://${hostHeader}${WS_TOKEN ? "/<YOUR_WS_TOKEN>" : "/"}`;
+  const downloading = !ready && bootstrap?.phase === "downloading";
   const badgeColor = ready ? "#10b981" : "#f59e0b";
-  const badgeLabel = ready ? "Playwright Ready" : "Starting";
+  const badgeLabel = ready ? "Playwright Ready" : downloading ? "Downloading Browser" : "Starting";
+  const bootstrapBanner =
+    !ready && bootstrap?.message
+      ? `<p class="muted" style="color:#fbbf24;margin-top:.75rem;">${escapeHtml(bootstrap.message)}</p>`
+      : "";
+  const autoRefreshMeta = !ready ? '<meta http-equiv="refresh" content="5" />' : "";
   const viewerBadgeColor = !VIEWER_ENABLED ? "#64748b" : viewerReady ? "#38bdf8" : "#f59e0b";
   const viewerBadgeLabel = !VIEWER_ENABLED
     ? "Viewer Off (Native Headless)"
@@ -242,6 +260,7 @@ function renderStatusHtml(req, ready, viewerReady) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  ${autoRefreshMeta}
   <title>Camoufox Playwright Server</title>
   <style>
     :root { color-scheme: dark; }
@@ -288,6 +307,7 @@ function renderStatusHtml(req, ready, viewerReady) {
         <div class="stat"><div class="label">Authentication</div><div class="val">${escapeHtml(authLabel)}</div></div>
         <div class="stat"><div class="label">Uptime</div><div class="val">${uptimeSec}s</div></div>
       </div>
+      ${bootstrapBanner}
       ${viewerSection}
     </div>
     <div class="card">
@@ -372,12 +392,15 @@ const handleHttpRequest = async (req, res) => {
     const ready = await probeTcp(INTERNAL_PORT);
     const viewerReady = VIEWER_ENABLED ? await probeTcp(SELKIES_PORT) : true;
     const healthy = ready && (!VIEWER_ENABLED || viewerReady);
+    const bootstrap = readBootstrapStatus();
     sendJson(res, healthy ? 200 : 503, {
-      status: healthy ? "ok" : "starting",
+      status: healthy ? "ok" : (bootstrap?.phase || "starting"),
       ready,
       viewerEnabled: VIEWER_ENABLED,
       viewerReady,
       tlsEnabled: TLS_ENABLED,
+      phase: healthy ? "ready" : (bootstrap?.phase || "starting"),
+      message: healthy ? "Ready" : (bootstrap?.message || "Starting..."),
       engine: "camoufox",
       version: CAMOUFOX_VERSION,
       headless: HEADLESS_MODE,
@@ -464,7 +487,7 @@ const handleHttpRequest = async (req, res) => {
       probeTcp(INTERNAL_PORT),
       VIEWER_ENABLED ? probeTcp(SELKIES_PORT) : Promise.resolve(false),
     ]);
-    const html = renderStatusHtml(req, ready, viewerReady);
+    const html = renderStatusHtml(req, ready, viewerReady, readBootstrapStatus());
     res.writeHead(200, {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-store",

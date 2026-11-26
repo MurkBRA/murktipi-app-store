@@ -739,7 +739,7 @@ def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo
     assert "TZ" not in fields
     assert fields["WS_TOKEN"].get("type") == "password"
     assert fields["PROXY_PASSWORD"].get("type") == "password"
-    for var in ("ENABLE_VIEWER", "VIEWER_RESOLUTION", "WS_TOKEN", "GEOIP", "OS_TARGET", "LOCALE", "BLOCK_IMAGES", "BLOCK_WEBRTC", "DISABLE_COOP", "PROXY_SERVER", "PROXY_USERNAME", "PROXY_PASSWORD", "SHM_SIZE"):
+    for var in ("ENABLE_VIEWER", "VIEWER_RESOLUTION", "SLIM_FONTS", "WS_TOKEN", "GEOIP", "OS_TARGET", "LOCALE", "BLOCK_IMAGES", "BLOCK_WEBRTC", "DISABLE_COOP", "PROXY_SERVER", "PROXY_USERNAME", "PROXY_PASSWORD", "SHM_SIZE"):
         assert fields[var].get("required") is False
         assert "default" not in fields[var]
 
@@ -747,14 +747,18 @@ def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo
     assert svc.get("image") == f"ghcr.io/murkbra/camoufox:{version}"
     assert svc.get("container_name") == "${CONTAINER_NAME:-camoufox}"
     assert svc.get("shm_size") == "${SHM_SIZE:-256m}"
-    assert cfg.get("tipi_version", 0) >= 3
+    assert cfg.get("tipi_version", 0) >= 4
     assert "${APP_PORT}:9223" in [str(p) for p in svc.get("ports", [])]
+    assert "${APP_DATA_DIR}/data/camoufox-cache:/opt/camoufox-cache" in [str(v) for v in svc.get("volumes", [])]
     assert svc.get("x-runtipi", {}).get("internal_port") == 9223
     assert "healthcheck" in svc
     env = [str(e) for e in svc.get("environment", [])]
     assert "HEADLESS=${HEADLESS:-virtual}" in env and "TZ=${TZ}" in env
-    for var in ("ENABLE_VIEWER", "VIEWER_RESOLUTION", "WS_TOKEN", "GEOIP", "OS_TARGET", "LOCALE", "BLOCK_IMAGES", "BLOCK_WEBRTC", "DISABLE_COOP", "PROXY_SERVER", "PROXY_USERNAME", "PROXY_PASSWORD"):
+    for var in ("ENABLE_VIEWER", "VIEWER_RESOLUTION", "SLIM_FONTS", "WS_TOKEN", "GEOIP", "OS_TARGET", "LOCALE", "BLOCK_IMAGES", "BLOCK_WEBRTC", "DISABLE_COOP", "PROXY_SERVER", "PROXY_USERNAME", "PROXY_PASSWORD"):
         assert var in env
+    df_text = (repo_root / "packages" / "camoufox" / "Dockerfile").read_text(encoding="utf-8")
+    assert "camoufox fetch" not in df_text
+    assert "ensure_fpgen_model" in df_text
     assert "selkies==" in (repo_root / "packages" / "camoufox" / "requirements.txt").read_text(encoding="utf-8")
     assert "steps.appver.outputs.version" in wf_text
     assert "linux/amd64,linux/arm64" in wf_text

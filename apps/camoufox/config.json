@@ -8,7 +8,7 @@
   "description": "Anti-detect Firefox Playwright WebSocket server with integrated Selkies live browser viewer (/viewer/), built on official daijro/camoufox with C++ fingerprint spoofing, virtual Xvfb display support, optional GeoIP matching, proxy configuration, /json discovery, and optional token authentication for Playwright, Node-RED, and n8n.",
   "short_desc": "Anti-detect Firefox Playwright server with Selkies live viewer",
   "author": "daijro",
-  "tipi_version": 3,
+  "tipi_version": 4,
   "version": "0.5.9",
   "source": "https://github.com/daijro/camoufox",
   "website": "https://camoufox.com",
@@ -57,6 +57,16 @@
       "regex": "^[1-9][0-9]{2,3}x[1-9][0-9]{2,3}$",
       "pattern_error": "Enter resolution as WIDTHxHEIGHT, such as 1920x1080 or 1280x720.",
       "env_variable": "VIEWER_RESOLUTION",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "SLIM_FONTS",
+      "hint": "Prune large (>5 MB) CJK and Apple Emoji font files inside the cached Camoufox browser volume to save ~1.6 GB of app-data disk space (true or false). Leave blank to keep all fonts.",
+      "placeholder": "true",
+      "regex": "^(true|false)$",
+      "pattern_error": "Enter 'true' or 'false'.",
+      "env_variable": "SLIM_FONTS",
       "required": false
     },
     {

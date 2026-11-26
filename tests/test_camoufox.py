@@ -11,7 +11,7 @@ def test_camoufox_config_fields_and_secrets(get_app_config):
     assert config["exposable"] is True
     assert config["version"] == "0.5.9"
     assert config["version"] != "latest"
-    assert config["tipi_version"] >= 3
+    assert config["tipi_version"] >= 4
     assert set(config["categories"]) == {"development", "automation", "utilities"}
     assert config["supported_architectures"] == ["amd64", "arm64"]
 
@@ -24,6 +24,7 @@ def test_camoufox_config_fields_and_secrets(get_app_config):
         "HEADLESS",
         "ENABLE_VIEWER",
         "VIEWER_RESOLUTION",
+        "SLIM_FONTS",
         "WS_TOKEN",
         "GEOIP",
         "OS_TARGET",
@@ -71,6 +72,9 @@ def test_camoufox_compose_structure_and_passthrough(get_app_config, get_app_comp
     ports = [str(p) for p in svc.get("ports", [])]
     assert "${APP_PORT}:9223" in ports
 
+    volumes = [str(v) for v in svc.get("volumes", [])]
+    assert "${APP_DATA_DIR}/data/camoufox-cache:/opt/camoufox-cache" in volumes
+
     env = svc.get("environment", [])
     assert isinstance(env, list)
     assert "HEADLESS=${HEADLESS:-virtual}" in env
@@ -78,6 +82,7 @@ def test_camoufox_compose_structure_and_passthrough(get_app_config, get_app_comp
     for var in (
         "ENABLE_VIEWER",
         "VIEWER_RESOLUTION",
+        "SLIM_FONTS",
         "WS_TOKEN",
         "GEOIP",
         "OS_TARGET",
@@ -109,8 +114,11 @@ def test_camoufox_package_dockerfile_workflow_and_builder(repo_root, get_app_con
     assert "selkies==" in req_text
 
     df_text = (pkg_dir / "Dockerfile").read_text(encoding="utf-8")
-    assert "USER camoufox" in df_text
-    assert "camoufox fetch" in df_text
+    assert "useradd --system --gid camoufox" in df_text
+    assert "ensure_fpgen_model" in df_text
+    assert "camoufox fetch" not in df_text
+    assert "01_nodoc" in df_text
+    assert "libgtk-3-0" in df_text
     assert "openbox" in df_text
     assert "libgbm1" in df_text
     assert "SELKIES_PORT=8080" in df_text
@@ -126,11 +134,12 @@ def test_camoufox_package_dockerfile_workflow_and_builder(repo_root, get_app_con
 
     sys.path.insert(0, str(pkg_dir))
     try:
-        from config_builder import build_camoufox_kwargs, parse_viewer_enabled, parse_viewer_resolution
+        from config_builder import build_camoufox_kwargs, parse_slim_fonts, parse_viewer_enabled, parse_viewer_resolution
 
         assert parse_viewer_enabled({}) is True
         assert parse_viewer_enabled({"HEADLESS": "true"}) is False
         assert parse_viewer_resolution({}) == (1920, 1080)
+        assert parse_slim_fonts({"SLIM_FONTS": "true"}) is True
 
         built = build_camoufox_kwargs(
             {"OS_TARGET": "linux", "GEOIP": "true", "WS_TOKEN": "ignored-here"},

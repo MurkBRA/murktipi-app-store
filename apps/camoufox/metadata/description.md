@@ -28,6 +28,8 @@ If `WS_TOKEN` is set, pass the token via path (`ws://<host>:9223/<token>`), quer
 
 ## Key Features & Optional Settings
 
+- **Ultra-Slim Image & Persistent Cache Volume:** The Docker image excludes the ~2.5 GB browser bundle and downloads the pinned Camoufox binary (plus GeoIP only when `GEOIP=true`) on first startup into `${APP_DATA_DIR}/data/camoufox-cache`. Subsequent restarts boot in seconds.
+- **Slim Fonts (`SLIM_FONTS`):** Optional flag (`true`) that prunes large (>5 MB) CJK and Apple Emoji font packages inside the cache volume to save ~1.6 GB of app-data disk space while keeping Western/Latin OS fonts intact.
 - **Display Mode (`HEADLESS`):** Defaults to `virtual` (Xvfb virtual X11 display + Selkies viewer) with optional lightweight `true` native headless mode (disables the viewer to save RAM).
 - **Live Viewer Controls (`ENABLE_VIEWER`, `VIEWER_RESOLUTION`):** Keep the Selkies stream enabled in `virtual` mode (default `true`) or disable it (`false`), and set initial virtual screen dimensions (default `1920x1080`).
 - **Shared Memory (`SHM_SIZE`):** Defaults to `256m` for virtual display stability; raise to `512m` or `1g` for heavy multi-tab automation.

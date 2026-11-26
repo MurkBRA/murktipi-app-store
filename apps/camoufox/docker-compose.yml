@@ -9,10 +9,13 @@ services:
     shm_size: "${SHM_SIZE:-256m}"
     ports:
       - "${APP_PORT}:9223"
+    volumes:
+      - ${APP_DATA_DIR}/data/camoufox-cache:/opt/camoufox-cache
     environment:
       - HEADLESS=${HEADLESS:-virtual}
       - ENABLE_VIEWER
       - VIEWER_RESOLUTION
+      - SLIM_FONTS
       - WS_TOKEN
       - GEOIP
       - OS_TARGET
@@ -28,8 +31,8 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9223/health', timeout=5)"]
       interval: 30s
       timeout: 5s
-      retries: 3
-      start_period: 30s
+      retries: 5
+      start_period: 300s
     networks:
       - tipi_main_network
     x-runtipi:

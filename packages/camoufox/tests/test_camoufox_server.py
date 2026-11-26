@@ -8,6 +8,7 @@ from config_builder import (
     build_camoufox_kwargs,
     parse_bool_env,
     parse_headless_env,
+    parse_slim_fonts,
     parse_viewer_enabled,
     parse_viewer_resolution,
 )
@@ -71,6 +72,9 @@ def test_viewer_settings_and_virtual_display_override():
 
     assert parse_viewer_resolution({}) == (1920, 1080)
     assert parse_viewer_resolution({"VIEWER_RESOLUTION": "1280x720"}) == (1280, 720)
+    assert parse_slim_fonts({}) is False
+    assert parse_slim_fonts({"SLIM_FONTS": "true"}) is True
+    assert parse_slim_fonts({"SLIM_FONTS": "false"}) is False
 
     kwargs = build_camoufox_kwargs(
         {"HEADLESS": "virtual", "GEOIP": "true"},

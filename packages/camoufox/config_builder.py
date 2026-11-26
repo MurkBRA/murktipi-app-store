@@ -57,6 +57,12 @@ def parse_viewer_resolution(env: Mapping[str, str] | None = None) -> Tuple[int, 
     return int(match.group(1)), int(match.group(2))
 
 
+def parse_slim_fonts(env: Mapping[str, str] | None = None) -> bool:
+    """Return True when SLIM_FONTS requests pruning >5 MiB CJK/Apple fonts from the browser cache."""
+    source = os.environ if env is None else env
+    return bool(parse_bool_env(source.get("SLIM_FONTS")))
+
+
 def build_camoufox_kwargs(
     env: Mapping[str, str] | None = None,
     virtual_display_override: Optional[str] = None,

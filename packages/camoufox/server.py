@@ -6,6 +6,7 @@ import base64
 import datetime
 import importlib.metadata
 import ipaddress
+import json
 import os
 import shutil
 import signal
@@ -17,6 +18,10 @@ from pathlib import Path
 from typing import Optional
 
 import orjson
+from camoufox.exceptions import CamoufoxNotInstalled
+from camoufox.fpgen_model import ensure_fpgen_model
+from camoufox.geolocation import download_mmdb, get_mmdb_path, needs_update
+from camoufox.pkgman import CamoufoxFetcher, camoufox_path
 from camoufox.server import LAUNCH_SCRIPT, get_nodejs, to_camel_case_dict
 from camoufox.utils import launch_options, start_virtual_display
 from camoufox.virtdisplay import VirtualDisplay
@@ -27,7 +32,9 @@ from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 from config_builder import (
     build_camoufox_kwargs,
+    parse_bool_env,
     parse_headless_env,
+    parse_slim_fonts,
     parse_viewer_enabled,
     parse_viewer_resolution,
 )
@@ -36,6 +43,140 @@ _STOPPING = False
 _SHARED_DISPLAY = ":99"
 _DISPLAY_SOCKET = "/tmp/.X11-unix/X99"
 _DEFAULT_TLS_DIR = Path("/tmp/camoufox-tls")
+_BOOTSTRAP_STATUS_FILE = Path(os.environ.get("BOOTSTRAP_STATUS_FILE") or "/tmp/camoufox-bootstrap.json")
+_SLIM_FONT_MAX_BYTES = 5 * 1024 * 1024
+_FONT_SUFFIXES = {".ttf", ".ttc", ".otf", ".woff", ".woff2"}
+
+
+def _chown_tree_if_needed(root: Path, uid: int, gid: int) -> None:
+    if not root.exists():
+        return
+    try:
+        st = root.lstat()
+        if st.st_uid != uid or st.st_gid != gid:
+            os.chown(root, uid, gid)
+    except OSError:
+        pass
+    for dirpath, dirnames, filenames in os.walk(root):
+        for name in (*dirnames, *filenames):
+            p = Path(dirpath) / name
+            try:
+                st = p.lstat()
+                if st.st_uid != uid or st.st_gid != gid:
+                    os.chown(p, uid, gid)
+            except OSError:
+                pass
+
+
+def _drop_privileges_if_root() -> None:
+    """Fix bind-mounted cache permissions and drop root privileges to the 'camoufox' user."""
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        return
+    import pwd
+
+    pw = pwd.getpwnam("camoufox")
+    cache_root = Path(os.environ.get("XDG_CACHE_HOME") or "/opt/camoufox-cache")
+    cache_root.mkdir(parents=True, exist_ok=True)
+    x11_unix = Path("/tmp/.X11-unix")
+    x11_unix.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(x11_unix, 0o1777)
+    except OSError:
+        pass
+    _chown_tree_if_needed(cache_root, pw.pw_uid, pw.pw_gid)
+    _chown_tree_if_needed(Path(pw.pw_dir), pw.pw_uid, pw.pw_gid)
+
+    os.initgroups(pw.pw_name, pw.pw_gid)
+    os.setgid(pw.pw_gid)
+    os.setuid(pw.pw_uid)
+    os.environ["HOME"] = pw.pw_dir
+    os.environ["USER"] = pw.pw_name
+    os.environ["LOGNAME"] = pw.pw_name
+
+
+def _write_bootstrap_status(phase: str, message: str) -> None:
+    try:
+        _BOOTSTRAP_STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = _BOOTSTRAP_STATUS_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps({"phase": phase, "message": message}), encoding="utf-8")
+        tmp.replace(_BOOTSTRAP_STATUS_FILE)
+    except OSError:
+        pass
+
+
+def _prune_large_fonts(browser_dir: Path, max_bytes: int = _SLIM_FONT_MAX_BYTES) -> None:
+    fonts_dir = browser_dir / "fonts"
+    if not fonts_dir.is_dir():
+        return
+    removed = 0
+    freed_bytes = 0
+    for font_file in fonts_dir.rglob("*"):
+        if not font_file.is_file() or font_file.suffix.lower() not in _FONT_SUFFIXES:
+            continue
+        try:
+            sz = font_file.stat().st_size
+            if sz > max_bytes:
+                font_file.unlink()
+                removed += 1
+                freed_bytes += sz
+        except OSError:
+            pass
+    if removed:
+        print(
+            f"[camoufox-supervisor] SLIM_FONTS pruned {removed} font file(s) > {max_bytes // (1024 * 1024)} MiB "
+            f"(freed {freed_bytes / (1024 * 1024):.1f} MiB in {fonts_dir})",
+            flush=True,
+        )
+
+
+def _ensure_camoufox_runtime() -> bool:
+    """Ensure the pinned Camoufox browser (and optional GeoIP DB) exists in /opt/camoufox-cache."""
+    try:
+        browser_dir = Path(camoufox_path(download_if_missing=False))
+        print(f"[camoufox-supervisor] Using cached Camoufox browser at {browser_dir}", flush=True)
+    except CamoufoxNotInstalled:
+        delays = (5, 15, 30, 60)
+        browser_dir = None
+        for attempt in range(len(delays) + 1):
+            if _STOPPING:
+                return False
+            _write_bootstrap_status(
+                "downloading",
+                "First-run setup: downloading Camoufox browser (~1.2 GB) into persistent cache (/opt/camoufox-cache)...",
+            )
+            print(
+                f"[camoufox-supervisor] Camoufox browser not cached; downloading pinned build (attempt {attempt + 1})...",
+                flush=True,
+            )
+            try:
+                CamoufoxFetcher().install()
+                browser_dir = Path(camoufox_path(download_if_missing=False))
+                break
+            except Exception as exc:
+                if _STOPPING or attempt >= len(delays):
+                    _write_bootstrap_status("error", f"Failed to download Camoufox browser: {exc}")
+                    raise
+                wait_s = delays[attempt]
+                print(
+                    f"[camoufox-supervisor] Download failed ({exc}); retrying in {wait_s}s...",
+                    flush=True,
+                )
+                time.sleep(wait_s)
+        assert browser_dir is not None
+
+    if parse_slim_fonts():
+        _prune_large_fonts(browser_dir)
+
+    ensure_fpgen_model()
+
+    if parse_bool_env(os.environ.get("GEOIP")):
+        mmdb_path = get_mmdb_path()
+        if not mmdb_path.exists() or needs_update():
+            _write_bootstrap_status("downloading", "Downloading GeoIP database into persistent cache...")
+            print("[camoufox-supervisor] Fetching GeoIP database on demand...", flush=True)
+            download_mmdb()
+
+    return True
 
 
 def _ensure_tls_cert() -> tuple[str, str]:
@@ -291,6 +432,9 @@ def main() -> int:
     signal.signal(signal.SIGTERM, handle_signal)
     signal.signal(signal.SIGINT, handle_signal)
 
+    _drop_privileges_if_root()
+    _write_bootstrap_status("starting", "Initializing Camoufox proxy...")
+
     viewer_enabled = parse_viewer_enabled()
     headless_mode = parse_headless_env(os.environ.get("HEADLESS"))
     selkies_port = int((os.environ.get("SELKIES_PORT") or "8080").strip())
@@ -300,6 +444,7 @@ def main() -> int:
     proxy_env = os.environ.copy()
     proxy_env["VIEWER_ACTIVE"] = "true" if viewer_enabled else "false"
     proxy_env["SELKIES_PORT"] = str(selkies_port)
+    proxy_env["BOOTSTRAP_STATUS_FILE"] = str(_BOOTSTRAP_STATUS_FILE)
     try:
         cert_path, key_path = _ensure_tls_cert()
         proxy_env["TLS_CERT_PATH"] = cert_path
@@ -327,6 +472,10 @@ def main() -> int:
     shared_display: Optional[str] = None
 
     try:
+        if not _ensure_camoufox_runtime() or _STOPPING:
+            return 0
+        _write_bootstrap_status("starting", "Starting display server and Camoufox...")
+
         if viewer_enabled and headless_mode is not True:
             width, height = parse_viewer_resolution()
             print(f"[camoufox-supervisor] Starting Xvfb {_SHARED_DISPLAY} ({width}x{height}) + Selkies...", flush=True)
@@ -388,6 +537,7 @@ def main() -> int:
                         break
                 print("[camoufox-supervisor] Launching Camoufox Playwright server...", flush=True)
                 camoufox_proc, virtual_display = _launch_camoufox_once(shared_display=shared_display)
+                _write_bootstrap_status("ready", "Ready")
 
             time.sleep(0.5)
     finally:
