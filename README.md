@@ -87,10 +87,10 @@ Compressor de imagens em lote no navegador (`ghcr.io/murkbra/pic-smaller:1.1.0`,
 - **Porta e Build Multi-Arch:** Expõe a interface web na porta padrão `3002` (`${APP_PORT}:3000`), com `CONTAINER_NAME` opcional (`pic-smaller`), healthcheck nativo e build automática `amd64`/`arm64` via GitHub Actions para o GHCR.
 
 ### 9. 🦊 [Camoufox](apps/camoufox)
-Servidor WebSocket Playwright baseado no navegador anti-detecção **Camoufox** (`ghcr.io/murkbra/camoufox:0.5.9`, empacotando `daijro/camoufox`) construído sobre **`ghcr.io/linuxserver/baseimage-selkies:debiantrixie`** (mesma arquitetura s6-overlay + Nginx HTTP/HTTPS + Openbox `NO_DECOR=true` + Selkies do `lscr.io/linuxserver/brave`), com UI Selkies na porta padrão `3003` (`https://<host>:3003/`) e WebSocket `playwright.firefox.connect(...)` na porta `9223`.
+Servidor WebSocket Playwright oficial do navegador anti-detecção **Camoufox** (`ghcr.io/murkbra/camoufox:0.5.9`, empacotando `daijro/camoufox` sobre imagem enxuta **`python:3.12-slim`** sem Selkies/VNC), expondo `playwright.firefox.connect(...)`, página de status, `/json` e `/health` na porta padrão `9223` (`${APP_PORT}:9223`).
 
-- **Integração Padrão LinuxServer Selkies:** Usa volume persistente `${APP_DATA_DIR}/data/config:/config` (armazenando perfil, certificados SSL, cache do navegador baixado no 1º boot e GeoIP sob demanda), suporte a `PUID`/`PGID`, autenticação web opcional `CUSTOM_USER`/`PASSWORD`, `AUTOSTART_BROWSER`, `SLIM_FONTS=true` e `SHM_SIZE` padrão `1gb` (com aceleração automática DRI3/GPU quando disponível).
-- **Playwright & Display Virtual:** No modo padrão `HEADLESS=virtual`, todas as abas abertas por automações (**Node-RED**, **n8n**, Python/Node) aparecem maximizadas e sem bordas direto no desktop Selkies, mantendo página de status, `/json`, `/health` e autenticação por `WS_TOKEN` na porta `9223` (`amd64`/`arm64` no GHCR).
+- **Imagem Leve + Cache `/config`:** Mantém a imagem Docker pequena baixando o binário fixado do navegador no volume persistente `${APP_DATA_DIR}/data/config:/config` na primeira inicialização (e o banco GeoIP apenas se `GEOIP=true`), com suporte opcional a `PUID`/`PGID` e `SLIM_FONTS=true` para economizar ~1,6 GB em disco.
+- **Automação Anti-Detect:** Suporta `HEADLESS=virtual` (via `Xvfb` nativo do Camoufox) ou `HEADLESS=true`, autenticação opcional por `WS_TOKEN`, `OS_TARGET`, `LOCALE`, `PROXY_SERVER` e builds multi-arch `amd64`/`arm64` no GHCR.
 
 ---
 

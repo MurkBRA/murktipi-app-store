@@ -9,15 +9,9 @@ const PORT = Number(process.env.PORT || "9223");
 const INTERNAL_HOST = "127.0.0.1";
 const INTERNAL_PORT = Number(process.env.INTERNAL_WS_PORT || "9224");
 const INTERNAL_WS_PATH = ensureLeadingSlash(process.env.INTERNAL_WS_PATH || "/camoufox");
-const UI_MUX_PORT = Number(process.env.UI_MUX_PORT || "0");
-const SELKIES_HTTP_PORT = Number(process.env.SELKIES_HTTP_PORT || "3000");
-const SELKIES_HTTPS_PORT = Number(process.env.SELKIES_HTTPS_PORT || "3001");
 const BOOTSTRAP_STATUS_FILE = (process.env.BOOTSTRAP_STATUS_FILE || "").trim();
 const TLS_CERT_PATH = (process.env.TLS_CERT_PATH || "").trim();
 const TLS_KEY_PATH = (process.env.TLS_KEY_PATH || "").trim();
-const VIEWER_ENABLED = !["0", "false", "no", "off"].includes(
-  String(process.env.VIEWER_ACTIVE || "true").trim().toLowerCase()
-);
 const WS_TOKEN = (process.env.WS_TOKEN || "").trim();
 const HEADLESS_MODE = (process.env.HEADLESS || "virtual").trim();
 const GEOIP_MODE = (process.env.GEOIP || "false").trim();
@@ -69,17 +63,6 @@ function isSecureTransport(req) {
     .trim();
   if (fwdProto === "https") return true;
   return String(req.headers["x-forwarded-ssl"] || "").toLowerCase().trim() === "on";
-}
-
-function extractHostname(hostHeader) {
-  const raw = String(hostHeader || "").trim();
-  if (!raw) return "localhost";
-  if (raw.startsWith("[")) {
-    const end = raw.indexOf("]");
-    return end >= 0 ? raw.slice(0, end + 1) : raw;
-  }
-  const idx = raw.lastIndexOf(":");
-  return idx >= 0 ? raw.slice(0, idx) : raw;
 }
 
 function isWsAuthorized(req) {
@@ -145,41 +128,22 @@ function readBootstrapStatus() {
   }
 }
 
-function getSelkiesUiUrl(req) {
-  const hostOnly = escapeHtml(extractHostname(req.headers.host || `localhost:${PORT}`));
-  const uiPort = UI_MUX_PORT > 0 ? UI_MUX_PORT : SELKIES_HTTPS_PORT;
-  const scheme = isSecureTransport(req) || UI_MUX_PORT > 0 ? "https" : "http";
-  return `${scheme}://${hostOnly}:${uiPort}/`;
-}
-
-function renderStatusHtml(req, ready, viewerReady, bootstrap) {
+function renderStatusHtml(req, ready, bootstrap) {
   const rawHost = req.headers.host || `localhost:${PORT}`;
   const hostHeader = escapeHtml(rawHost);
-  const publicPath = WS_TOKEN ? "/<WS_TOKEN>" : INTERNAL_WS_PATH;
+  const publicPath = WS_TOKEN ? "/<WS_TOKEN>" : "/";
   const wsScheme = isSecureTransport(req) ? "wss" : "ws";
   const wsExample = `${wsScheme}://${hostHeader}${WS_TOKEN ? "/<YOUR_WS_TOKEN>" : "/"}`;
   const downloading = !ready && bootstrap?.phase === "downloading";
   const badgeColor = ready ? "#10b981" : "#f59e0b";
   const badgeLabel = ready ? "Playwright Ready" : downloading ? "Downloading Browser" : "Starting";
-  const viewerBadgeColor = !VIEWER_ENABLED ? "#64748b" : viewerReady ? "#38bdf8" : "#f59e0b";
-  const viewerBadgeLabel = !VIEWER_ENABLED
-    ? "Viewer Off (Native Headless)"
-    : viewerReady
-      ? "Selkies Ready"
-      : "Selkies Starting";
   const authLabel = WS_TOKEN ? "Token Required (WS_TOKEN)" : "Open (No WS_TOKEN)";
   const uptimeSec = Math.floor((Date.now() - STARTED_AT) / 1000);
-  const selkiesUrl = getSelkiesUiUrl(req);
   const bootstrapBanner =
     !ready && bootstrap?.message
       ? `<p class="muted" style="color:#fbbf24;margin-top:.75rem;">${escapeHtml(bootstrap.message)}</p>`
       : "";
   const autoRefreshMeta = !ready ? '<meta http-equiv="refresh" content="5" />' : "";
-  const viewerSection = VIEWER_ENABLED
-    ? `<div class="actions">
-         <a class="btn" href="${selkiesUrl}" target="_blank" rel="noopener">Open Live Browser Viewer (Selkies)</a>
-       </div>`
-    : `<p class="muted">Live browser viewer requires <code>HEADLESS=virtual</code> (currently running in native headless mode).</p>`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -194,15 +158,11 @@ function renderStatusHtml(req, ready, viewerReady, bootstrap) {
     .wrap { max-width: 960px; margin: 0 auto; }
     .card { background: #111827; border: 1px solid #1e293b; border-radius: 14px; padding: 1.4rem; margin-bottom: 1.15rem; }
     .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; }
-    .badges { display: flex; flex-wrap: wrap; gap: .5rem; }
     .badge { display: inline-flex; align-items: center; gap: .45rem; padding: .35rem .8rem; border-radius: 999px; font-weight: 600; font-size: .85rem; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .75rem; margin-top: 1rem; }
     .stat { background: #0f172a; border: 1px solid #1e293b; border-radius: 10px; padding: .8rem; }
     .label { font-size: .72rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; }
     .val { font-size: .95rem; font-weight: 600; margin-top: .25rem; word-break: break-all; }
-    .actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; }
-    .btn { display: inline-flex; align-items: center; justify-content: center; background: #f97316; color: #0b1120; text-decoration: none; border: none; border-radius: 8px; padding: .6rem 1rem; font-weight: 700; font-size: .9rem; cursor: pointer; }
-    .btn:hover { background: #fb923c; }
     pre { background: #020617; border: 1px solid #1e293b; border-radius: 10px; padding: 1rem; overflow-x: auto; font-size: .85rem; line-height: 1.45; }
     h1 { margin: 0; font-size: 1.45rem; }
     h2 { margin: 0 0 .6rem; font-size: 1.05rem; color: #f8fafc; }
@@ -214,13 +174,10 @@ function renderStatusHtml(req, ready, viewerReady, bootstrap) {
     <div class="card">
       <div class="row">
         <div>
-          <h1>Camoufox Playwright + Selkies</h1>
-          <p>Anti-detect Firefox WebSocket server paired with LSIO Selkies HTML5 streaming</p>
+          <h1>Camoufox Playwright Server</h1>
+          <p>Official anti-detect Firefox WebSocket server for Playwright, n8n, and Node-RED</p>
         </div>
-        <div class="badges">
-          <span class="badge" style="background:${badgeColor}22;color:${badgeColor};border:1px solid ${badgeColor}55;">${badgeLabel}</span>
-          <span class="badge" style="background:${viewerBadgeColor}22;color:${viewerBadgeColor};border:1px solid ${viewerBadgeColor}55;">${viewerBadgeLabel}</span>
-        </div>
+        <span class="badge" style="background:${badgeColor}22;color:${badgeColor};border:1px solid ${badgeColor}55;">${badgeLabel}</span>
       </div>
       <div class="grid">
         <div class="stat"><div class="label">Camoufox</div><div class="val">v${escapeHtml(CAMOUFOX_VERSION)}</div></div>
@@ -231,11 +188,10 @@ function renderStatusHtml(req, ready, viewerReady, bootstrap) {
         <div class="stat"><div class="label">Uptime</div><div class="val">${uptimeSec}s</div></div>
       </div>
       ${bootstrapBanner}
-      ${viewerSection}
     </div>
     <div class="card">
-      <h2>Playwright / Node-RED Connection</h2>
-      <p>WebSocket path: <code>${escapeHtml(publicPath)}</code> (live browser opens inside Selkies whenever a script calls <code>newPage()</code>)</p>
+      <h2>Playwright / Node-RED / n8n Connection</h2>
+      <p>WebSocket endpoint path: <code>${escapeHtml(publicPath)}</code> (discovery available at <code>/json</code>)</p>
       <pre>const browser = await playwright.firefox.connect('${wsExample}');
 const page = await browser.newPage();
 await page.goto('https://example.com');
@@ -269,21 +225,17 @@ const handleHttpRequest = async (req, res) => {
 
   if (url.pathname === "/health") {
     const ready = await probeTcp(INTERNAL_PORT);
-    const viewerReady = VIEWER_ENABLED ? await probeTcp(SELKIES_HTTP_PORT) : true;
-    const healthy = ready && (!VIEWER_ENABLED || viewerReady);
     const bootstrap = readBootstrapStatus();
-    sendJson(res, healthy ? 200 : 503, {
-      status: healthy ? "ok" : (bootstrap?.phase || "starting"),
+    sendJson(res, ready ? 200 : 503, {
+      status: ready ? "ok" : (bootstrap?.phase || "starting"),
       ready,
-      viewerEnabled: VIEWER_ENABLED,
-      viewerReady,
       tlsEnabled: TLS_ENABLED,
-      uiMuxPort: UI_MUX_PORT || null,
-      phase: healthy ? "ready" : (bootstrap?.phase || "starting"),
-      message: healthy ? "Ready" : (bootstrap?.message || "Starting..."),
+      phase: ready ? "ready" : (bootstrap?.phase || "starting"),
+      message: ready ? "Ready" : (bootstrap?.message || "Starting..."),
       engine: "camoufox",
       version: CAMOUFOX_VERSION,
       headless: HEADLESS_MODE,
+      geoip: GEOIP_MODE,
       activeConnections,
     });
     return;
@@ -300,8 +252,6 @@ const handleHttpRequest = async (req, res) => {
     const wsScheme = isSecureTransport(req) ? "wss" : "ws";
     sendJson(res, ready ? 200 : 503, {
       ready,
-      viewerEnabled: VIEWER_ENABLED,
-      viewerUrl: VIEWER_ENABLED ? getSelkiesUiUrl(req) : null,
       tlsEnabled: TLS_ENABLED,
       engine: "camoufox",
       browser: "firefox",
@@ -312,21 +262,9 @@ const handleHttpRequest = async (req, res) => {
     return;
   }
 
-  if (url.pathname === "/viewer" || url.pathname.startsWith("/viewer/")) {
-    res.writeHead(302, {
-      Location: getSelkiesUiUrl(req),
-      "Cache-Control": "no-store",
-    });
-    res.end();
-    return;
-  }
-
   if (url.pathname === "/") {
-    const [ready, viewerReady] = await Promise.all([
-      probeTcp(INTERNAL_PORT),
-      VIEWER_ENABLED ? probeTcp(SELKIES_HTTP_PORT) : Promise.resolve(false),
-    ]);
-    const html = renderStatusHtml(req, ready, viewerReady, readBootstrapStatus());
+    const ready = await probeTcp(INTERNAL_PORT);
+    const html = renderStatusHtml(req, ready, readBootstrapStatus());
     res.writeHead(200, {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-store",
@@ -436,53 +374,8 @@ const server = tlsOptions
     })
   : httpServer;
 
-// Wire-speed HTTP/HTTPS port multiplexer for LSIO Nginx Selkies UI (3000 HTTP / 3001 HTTPS).
-let uiMuxServer = null;
-if (UI_MUX_PORT > 0) {
-  uiMuxServer = net.createServer((clientSocket) => {
-    clientSocket.on("error", () => {
-      if (!clientSocket.destroyed) clientSocket.destroy();
-    });
-    clientSocket.setTimeout(10000, () => {
-      if (!clientSocket.destroyed) clientSocket.destroy();
-    });
-    const onReadable = () => {
-      const firstByte = clientSocket.read(1);
-      if (firstByte === null) {
-        if (clientSocket.readableEnded) {
-          clientSocket.destroy();
-        } else {
-          clientSocket.once("readable", onReadable);
-        }
-        return;
-      }
-      clientSocket.setTimeout(0);
-      const targetPort = firstByte[0] === 0x16 ? SELKIES_HTTPS_PORT : SELKIES_HTTP_PORT;
-      const upstreamSocket = net.connect({ host: INTERNAL_HOST, port: targetPort });
-      let closed = false;
-      const cleanup = () => {
-        if (closed) return;
-        closed = true;
-        clientSocket.destroy();
-        upstreamSocket.destroy();
-      };
-      upstreamSocket.once("connect", () => {
-        upstreamSocket.write(firstByte);
-        upstreamSocket.pipe(clientSocket);
-        clientSocket.pipe(upstreamSocket);
-      });
-      upstreamSocket.once("error", cleanup);
-      clientSocket.once("error", cleanup);
-      upstreamSocket.once("close", cleanup);
-      clientSocket.once("close", cleanup);
-    };
-    clientSocket.once("readable", onReadable);
-  });
-}
-
 for (const sig of ["SIGTERM", "SIGINT"]) {
   process.on(sig, () => {
-    uiMuxServer?.close();
     server.close(() => process.exit(0));
     httpServer.closeAllConnections?.();
     httpsServer?.closeAllConnections?.();
@@ -496,11 +389,3 @@ server.listen(PORT, HOST, () => {
     `[camoufox-proxy] Listening on ${protoDesc} -> ws://${INTERNAL_HOST}:${INTERNAL_PORT}${INTERNAL_WS_PATH} (tls=${TLS_ENABLED ? "enabled" : "disabled"}, auth=${WS_TOKEN ? "enabled" : "disabled"})`
   );
 });
-
-if (uiMuxServer) {
-  uiMuxServer.listen(UI_MUX_PORT, HOST, () => {
-    console.log(
-      `[camoufox-ui-mux] Listening on http+https://${HOST}:${UI_MUX_PORT} -> :${SELKIES_HTTP_PORT} (HTTP) / :${SELKIES_HTTPS_PORT} (HTTPS)`
-    );
-  });
-}

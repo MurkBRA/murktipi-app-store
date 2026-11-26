@@ -2,14 +2,13 @@
   "$schema": "https://raw.githubusercontent.com/runtipi/runtipi-docs/main/src/content/docs/reference/app-config.schema.json",
   "id": "camoufox",
   "name": "Camoufox",
-  "port": 3003,
-  "https": true,
+  "port": 9223,
   "available": true,
   "categories": ["development", "automation", "utilities"],
-  "description": "Anti-detect Firefox Playwright WebSocket server built on LinuxServer's baseimage-selkies (like lscr.io/linuxserver/brave) with direct HTTPS Selkies desktop streaming, C++ fingerprint spoofing, persistent /config cache, optional GeoIP matching, proxy configuration, and optional token/UI authentication for Playwright, Node-RED, and n8n.",
-  "short_desc": "Anti-detect Firefox Playwright server with LinuxServer Selkies UI",
+  "description": "Official anti-detect Firefox Playwright WebSocket server built on python:3.12-slim (daijro/camoufox) with C++ fingerprint spoofing, persistent /config cache, optional GeoIP matching, proxy configuration, and optional WS_TOKEN authentication for Playwright, Node-RED, and n8n.",
+  "short_desc": "Official anti-detect Firefox Playwright WebSocket server",
   "author": "daijro",
-  "tipi_version": 5,
+  "tipi_version": 6,
   "version": "0.5.9",
   "source": "https://github.com/daijro/camoufox",
   "website": "https://camoufox.com",
@@ -31,7 +30,7 @@
     {
       "type": "text",
       "label": "PUID",
-      "hint": "User ID for /config volume file ownership. Leave blank to use the LinuxServer default (911).",
+      "hint": "User ID for /config volume file ownership. Leave blank to run with the container default UID.",
       "placeholder": "1000",
       "regex": "^[0-9]+$",
       "pattern_error": "Enter a numeric user ID such as 1000.",
@@ -41,26 +40,11 @@
     {
       "type": "text",
       "label": "PGID",
-      "hint": "Group ID for /config volume file ownership. Leave blank to use the LinuxServer default (911).",
+      "hint": "Group ID for /config volume file ownership. Leave blank to run with the container default GID.",
       "placeholder": "1000",
       "regex": "^[0-9]+$",
       "pattern_error": "Enter a numeric group ID such as 1000.",
       "env_variable": "PGID",
-      "required": false
-    },
-    {
-      "type": "text",
-      "label": "CUSTOM_USER",
-      "hint": "Optional HTTP Basic Auth username to protect the Selkies web desktop UI. Leave blank for no UI login.",
-      "placeholder": "camoufox",
-      "env_variable": "CUSTOM_USER",
-      "required": false
-    },
-    {
-      "type": "password",
-      "label": "PASSWORD",
-      "hint": "Optional HTTP Basic Auth password to protect the Selkies web desktop UI. Leave blank for no UI login.",
-      "env_variable": "PASSWORD",
       "required": false
     },
     {
@@ -73,24 +57,14 @@
     {
       "type": "text",
       "label": "HEADLESS",
-      "hint": "Browser display mode. Virtual Display renders Camoufox inside the Selkies X11 desktop; Native Headless runs without virtual display output. Default: virtual.",
+      "hint": "Browser display mode. Virtual Display runs Camoufox inside Camoufox's built-in Xvfb display; Native Headless runs without Xvfb. Default: virtual.",
       "env_variable": "HEADLESS",
       "default": "virtual",
       "required": true,
       "options": [
-        { "label": "Virtual Display via Selkies X11 (Default)", "value": "virtual" },
+        { "label": "Virtual Display via Xvfb (Default)", "value": "virtual" },
         { "label": "Native Headless", "value": "true" }
       ]
-    },
-    {
-      "type": "text",
-      "label": "AUTOSTART_BROWSER",
-      "hint": "Automatically open a standalone Camoufox browser window in the Selkies desktop on startup (true or false). Leave blank to wait for Playwright connections or launch from the desktop menu.",
-      "placeholder": "true",
-      "regex": "^(true|false)$",
-      "pattern_error": "Enter 'true' or 'false'.",
-      "env_variable": "AUTOSTART_BROWSER",
-      "required": false
     },
     {
       "type": "text",
@@ -186,7 +160,7 @@
     {
       "type": "text",
       "label": "shm_size",
-      "hint": "Shared memory (/dev/shm) size for Camoufox and Selkies. Leave blank to use the default (1gb).",
+      "hint": "Shared memory (/dev/shm) size for Camoufox. Leave blank to use the default (1gb).",
       "placeholder": "1gb",
       "env_variable": "SHM_SIZE",
       "required": false

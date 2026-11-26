@@ -1,2 +1,1 @@
 camoufox[geoip]==0.5.9
-selkies==2.2.1

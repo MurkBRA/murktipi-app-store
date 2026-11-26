@@ -38,7 +38,7 @@ Tracker:
 - REG-031: Dockhand must pin fnsys/dockhand version, adjust port off 3000, omit PUID/PGID, require user-defined POSTGRES_USER, and auto-generate URL-safe random POSTGRES_PASSWORD
 - REG-032: ImgCompress must pin karimz1/imgcompress version (never :latest), map ${APP_PORT}:5000 on host port 3001, keep optional env vars pass-through, and preserve healthcheck
 - REG-033: Pic Smaller must pin ghcr.io/murkbra/pic-smaller version matching config.json and CI workflow, map ${APP_PORT}:3000 on host port 3002, bump tipi_version >= 2, and preserve healthcheck
-- REG-034: Camoufox must pin ghcr.io/murkbra/camoufox matching config.json and CI workflow, map ${APP_PORT}:9223, mask WS_TOKEN/PROXY_PASSWORD, and keep optional env vars pass-through
+- REG-034: Camoufox must pin ghcr.io/murkbra/camoufox matching config.json and CI workflow on slim Python without Selkies, map ${APP_PORT}:9223, mask WS_TOKEN/PROXY_PASSWORD, and keep optional env vars pass-through
 """
 
 import re
@@ -725,28 +725,26 @@ def test_reg_033_pic_smaller_pinned_ghcr_workflow_and_port_3002(repo_root, get_a
 
 
 def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo_root, get_app_config, get_app_compose):
-    """[REG-034] Camoufox must pin ghcr.io/murkbra/camoufox matching config.json and requirements.txt,
-    integrate LSIO baseimage-selkies (:3003 UI + :9223 Playwright), mask secrets, and include healthcheck."""
+    """[REG-034] Camoufox must pin ghcr.io/murkbra/camoufox matching config.json and requirements.txt
+    on python:3.12-slim without Selkies VNC, expose port 9223, mask secrets, and include healthcheck."""
     cfg = get_app_config("camoufox")
     compose = get_app_compose("camoufox")
     wf_text = (repo_root / ".github" / "workflows" / "docker-camoufox.yml").read_text(encoding="utf-8")
 
     version = str(cfg.get("version", ""))
     assert version and version != "latest", "[REG-034] Camoufox version must not be 'latest'"
-    assert cfg.get("port") == 3003
-    assert cfg.get("https") is True
+    assert cfg.get("port") == 9223
+    assert cfg.get("https") is None
 
     fields = {f["env_variable"]: f for f in cfg.get("form_fields", [])}
     assert "TZ" not in fields
-    assert fields["PASSWORD"].get("type") == "password"
+    for removed in ("CUSTOM_USER", "PASSWORD", "AUTOSTART_BROWSER"):
+        assert removed not in fields
     assert fields["WS_TOKEN"].get("type") == "password"
     assert fields["PROXY_PASSWORD"].get("type") == "password"
     for var in (
         "PUID",
         "PGID",
-        "CUSTOM_USER",
-        "PASSWORD",
-        "AUTOSTART_BROWSER",
         "SLIM_FONTS",
         "WS_TOKEN",
         "GEOIP",
@@ -767,20 +765,19 @@ def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo
     assert svc.get("image") == f"ghcr.io/murkbra/camoufox:{version}"
     assert svc.get("container_name") == "${CONTAINER_NAME:-camoufox}"
     assert svc.get("shm_size") == "${SHM_SIZE:-1gb}"
-    assert cfg.get("tipi_version", 0) >= 5
+    assert cfg.get("tipi_version", 0) >= 6
     ports = [str(p) for p in svc.get("ports", [])]
-    assert "${APP_PORT}:3003" in ports and "9223:9223" in ports
+    assert ports == ["${APP_PORT}:9223"]
     assert "${APP_DATA_DIR}/data/config:/config" in [str(v) for v in svc.get("volumes", [])]
-    assert svc.get("x-runtipi", {}).get("internal_port") == 3003
+    assert svc.get("x-runtipi", {}).get("internal_port") == 9223
     assert "healthcheck" in svc
     env = [str(e) for e in svc.get("environment", [])]
     assert "HEADLESS=${HEADLESS:-virtual}" in env and "TZ=${TZ}" in env
+    for removed in ("CUSTOM_USER", "PASSWORD", "AUTOSTART_BROWSER"):
+        assert removed not in env
     for var in (
         "PUID",
         "PGID",
-        "CUSTOM_USER",
-        "PASSWORD",
-        "AUTOSTART_BROWSER",
         "SLIM_FONTS",
         "WS_TOKEN",
         "GEOIP",
@@ -795,10 +792,12 @@ def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo
     ):
         assert var in env
     df_text = (repo_root / "packages" / "camoufox" / "Dockerfile").read_text(encoding="utf-8")
-    assert "FROM ghcr.io/linuxserver/baseimage-selkies:debiantrixie" in df_text
+    assert "FROM python:3.12-slim" in df_text
+    assert "baseimage-selkies" not in df_text
     assert "camoufox fetch" not in df_text
     assert "ensure_fpgen_model" in df_text
-    assert "selkies==" in (repo_root / "packages" / "camoufox" / "requirements.txt").read_text(encoding="utf-8")
+    req_text = (repo_root / "packages" / "camoufox" / "requirements.txt").read_text(encoding="utf-8")
+    assert "selkies" not in req_text.lower()
     assert "steps.appver.outputs.version" in wf_text
     assert "linux/amd64,linux/arm64" in wf_text
 

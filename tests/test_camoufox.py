@@ -1,11 +1,9 @@
 import http.client
-import http.server
 import json
 import os
 import py_compile
 import shutil
 import socket
-import ssl
 import subprocess
 import sys
 import threading
@@ -17,29 +15,28 @@ def test_camoufox_config_fields_and_secrets(get_app_config):
     config = get_app_config("camoufox")
     assert config["id"] == "camoufox"
     assert config["name"] == "Camoufox"
-    assert config["port"] == 3003
-    assert config.get("https") is True
+    assert config["port"] == 9223
+    assert config.get("https") is None
     assert config["dynamic_config"] is True
     assert config["exposable"] is True
     assert config["version"] == "0.5.9"
     assert config["version"] != "latest"
-    assert config["tipi_version"] >= 5
+    assert config["tipi_version"] >= 6
     assert set(config["categories"]) == {"development", "automation", "utilities"}
     assert config["supported_architectures"] == ["amd64", "arm64"]
 
     form_fields = config.get("form_fields", [])
     fields_by_var = {f["env_variable"]: f for f in form_fields}
     assert "TZ" not in fields_by_var
+    for removed in ("CUSTOM_USER", "PASSWORD", "AUTOSTART_BROWSER"):
+        assert removed not in fields_by_var
 
     expected_vars = {
         "CONTAINER_NAME",
         "PUID",
         "PGID",
-        "CUSTOM_USER",
-        "PASSWORD",
         "WS_TOKEN",
         "HEADLESS",
-        "AUTOSTART_BROWSER",
         "SLIM_FONTS",
         "GEOIP",
         "OS_TARGET",
@@ -62,7 +59,7 @@ def test_camoufox_config_fields_and_secrets(get_app_config):
     assert headless["default"] == "virtual"
     assert [o["value"] for o in headless["options"]] == ["virtual", "true"]
 
-    for secret_var in ("PASSWORD", "WS_TOKEN", "PROXY_PASSWORD"):
+    for secret_var in ("WS_TOKEN", "PROXY_PASSWORD"):
         assert fields_by_var[secret_var]["type"] == "password"
         assert fields_by_var[secret_var]["required"] is False
         assert "default" not in fields_by_var[secret_var]
@@ -85,8 +82,7 @@ def test_camoufox_compose_structure_and_passthrough(get_app_config, get_app_comp
     assert svc.get("shm_size") == "${SHM_SIZE:-1gb}"
 
     ports = [str(p) for p in svc.get("ports", [])]
-    assert "${APP_PORT}:3003" in ports
-    assert "9223:9223" in ports
+    assert ports == ["${APP_PORT}:9223"]
 
     volumes = [str(v) for v in svc.get("volumes", [])]
     assert "${APP_DATA_DIR}/data/config:/config" in volumes
@@ -95,12 +91,11 @@ def test_camoufox_compose_structure_and_passthrough(get_app_config, get_app_comp
     assert isinstance(env, list)
     assert "HEADLESS=${HEADLESS:-virtual}" in env
     assert "TZ=${TZ}" in env
+    for removed in ("CUSTOM_USER", "PASSWORD", "AUTOSTART_BROWSER"):
+        assert removed not in env
     for var in (
         "PUID",
         "PGID",
-        "CUSTOM_USER",
-        "PASSWORD",
-        "AUTOSTART_BROWSER",
         "SLIM_FONTS",
         "WS_TOKEN",
         "GEOIP",
@@ -116,10 +111,11 @@ def test_camoufox_compose_structure_and_passthrough(get_app_config, get_app_comp
         assert var in env
         assert not any(str(e).startswith(f"{var}=") for e in env)
 
-    assert "healthcheck" in svc
+    hc = svc.get("healthcheck", {})
+    assert "127.0.0.1:9223/health" in " ".join(str(x) for x in hc.get("test", []))
     runtipi_cfg = svc.get("x-runtipi", {})
     assert runtipi_cfg.get("is_main") is True
-    assert runtipi_cfg.get("internal_port") == 3003
+    assert runtipi_cfg.get("internal_port") == 9223
 
 
 def test_camoufox_package_dockerfile_workflow_and_builder(repo_root, get_app_config):
@@ -128,30 +124,26 @@ def test_camoufox_package_dockerfile_workflow_and_builder(repo_root, get_app_con
     for filename in (
         "Dockerfile",
         "requirements.txt",
-        "icon.png",
         "config_builder.py",
         "proxy.mjs",
         "server.py",
-        "root/defaults/menu.xml",
-        "root/defaults/autostart",
-        "root/usr/bin/wrapped-camoufox",
-        "root/etc/s6-overlay/s6-rc.d/svc-camoufox/type",
-        "root/etc/s6-overlay/s6-rc.d/svc-camoufox/run",
-        "root/etc/s6-overlay/s6-rc.d/user/contents.d/svc-camoufox",
     ):
         assert (pkg_dir / filename).exists(), f"Missing packages/camoufox/{filename}"
 
+    for obsolete in ("icon.png", "root"):
+        assert not (pkg_dir / obsolete).exists(), f"Obsolete Selkies artifact still present: packages/camoufox/{obsolete}"
+
     req_text = (pkg_dir / "requirements.txt").read_text(encoding="utf-8")
     assert f"camoufox[geoip]=={config['version']}" in req_text
-    assert "selkies==" in req_text
+    assert "selkies" not in req_text.lower()
 
     df_text = (pkg_dir / "Dockerfile").read_text(encoding="utf-8")
-    assert "FROM ghcr.io/linuxserver/baseimage-selkies:debiantrixie" in df_text
-    assert "NO_DECOR=true" in df_text
-    assert "TITLE=Camoufox" in df_text
+    assert "FROM python:3.12-slim" in df_text
+    assert "baseimage-selkies" not in df_text
     assert "ensure_fpgen_model" in df_text
+    assert "xvfb" in df_text
     assert "camoufox fetch" not in df_text
-    assert "EXPOSE 3000 3001 3003 9223" in df_text
+    assert "EXPOSE 9223" in df_text
 
     workflow = repo_root / ".github" / "workflows" / "docker-camoufox.yml"
     assert workflow.exists()
@@ -163,23 +155,20 @@ def test_camoufox_package_dockerfile_workflow_and_builder(repo_root, get_app_con
 
     sys.path.insert(0, str(pkg_dir))
     try:
-        from config_builder import build_camoufox_kwargs, parse_slim_fonts, parse_viewer_enabled, parse_viewer_resolution
+        import config_builder
 
-        assert parse_viewer_enabled({}) is True
-        assert parse_viewer_enabled({"HEADLESS": "true"}) is False
-        assert parse_viewer_resolution({}) == (1920, 1080)
-        assert parse_slim_fonts({"SLIM_FONTS": "true"}) is True
+        assert not hasattr(config_builder, "parse_viewer_enabled")
+        assert config_builder.parse_slim_fonts({"SLIM_FONTS": "true"}) is True
+        assert config_builder.resolve_uid_gid({"PUID": "1000", "PGID": "1000"}) == (1000, 1000)
 
-        built = build_camoufox_kwargs(
-            {"OS_TARGET": "linux", "GEOIP": "true", "WS_TOKEN": "ignored-here"},
-            virtual_display_override=":1",
+        built = config_builder.build_camoufox_kwargs(
+            {"OS_TARGET": "linux", "GEOIP": "true", "WS_TOKEN": "ignored-here"}
         )
         assert built == {
             "host": "127.0.0.1",
             "port": 9224,
             "ws_path": "/camoufox",
-            "headless": False,
-            "virtual_display": ":1",
+            "headless": "virtual",
             "geoip": True,
             "os": "linux",
         }
@@ -197,7 +186,7 @@ def test_camoufox_logo_is_square_jpg(apps_dir):
         assert w == h and w == 1024
 
 
-def test_camoufox_proxy_and_lsio_ui_mux(repo_root, tmp_path):
+def test_camoufox_proxy_http_json_and_ws_token_forwarding(repo_root):
     pkg_dir = repo_root / "packages" / "camoufox"
     py_compile.compile(str(pkg_dir / "server.py"), doraise=True)
     py_compile.compile(str(pkg_dir / "config_builder.py"), doraise=True)
@@ -206,151 +195,113 @@ def test_camoufox_proxy_and_lsio_ui_mux(repo_root, tmp_path):
     assert node_bin, "Node.js is required to test packages/camoufox/proxy.mjs"
     subprocess.run([node_bin, "--check", str(pkg_dir / "proxy.mjs")], check=True)
 
-    cert_path = tmp_path / "cert.pem"
-    key_path = tmp_path / "key.pem"
-    openssl_bin = shutil.which("openssl")
-    try:
-        import datetime
-        import ipaddress
-        from cryptography import x509
-        from cryptography.hazmat.primitives import hashes, serialization
-        from cryptography.hazmat.primitives.asymmetric import rsa
-        from cryptography.x509.oid import NameOID
+    captured_requests = []
+    upstream_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    upstream_sock.bind(("127.0.0.1", 0))
+    upstream_sock.listen(5)
+    internal_port = upstream_sock.getsockname()[1]
+    stop_upstream = threading.Event()
 
-        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-        now = datetime.datetime.now(datetime.timezone.utc)
-        cert = (
-            x509.CertificateBuilder()
-            .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "camoufox")]))
-            .issuer_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "camoufox")]))
-            .public_key(key.public_key())
-            .serial_number(x509.random_serial_number())
-            .not_valid_before(now - datetime.timedelta(days=1))
-            .not_valid_after(now + datetime.timedelta(days=30))
-            .add_extension(
-                x509.SubjectAlternativeName([x509.DNSName("localhost"), x509.IPAddress(ipaddress.ip_address("127.0.0.1"))]),
-                critical=False,
-            )
-            .sign(key, hashes.SHA256())
-        )
-        key_path.write_bytes(key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
-        cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
-    except ImportError:
-        if openssl_bin:
-            subprocess.run(
-                [openssl_bin, "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", str(key_path), "-out", str(cert_path), "-days", "7", "-subj", "/CN=camoufox"],
-                check=True,
-                capture_output=True,
-            )
-        else:
-            proxy_text = (pkg_dir / "proxy.mjs").read_text(encoding="utf-8")
-            assert "UI_MUX_PORT" in proxy_text and "0x16" in proxy_text
-            return
+    def serve_upstream():
+        upstream_sock.settimeout(0.2)
+        while not stop_upstream.is_set():
+            try:
+                conn, _ = upstream_sock.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            try:
+                data = conn.recv(4096)
+                if data:
+                    captured_requests.append(data.decode("utf-8", errors="replace"))
+                    conn.sendall(
+                        b"HTTP/1.1 101 Switching Protocols\r\n"
+                        b"Upgrade: websocket\r\n"
+                        b"Connection: Upgrade\r\n\r\n"
+                    )
+            finally:
+                conn.close()
 
-    class FakeHttpSelkies(http.server.BaseHTTPRequestHandler):
-        def do_GET(self):
-            body = f"LSIO_HTTP:{self.path}".encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/plain")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+    upstream_thread = threading.Thread(target=serve_upstream, daemon=True)
+    upstream_thread.start()
 
-        def log_message(self, format, *args):
-            pass
-
-    class FakeHttpsSelkies(http.server.BaseHTTPRequestHandler):
-        def do_GET(self):
-            body = f"LSIO_HTTPS:{self.path}".encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/plain")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-
-        def log_message(self, format, *args):
-            pass
-
-    http_ui = http.server.ThreadingHTTPServer(("127.0.0.1", 0), FakeHttpSelkies)
-    https_ui = http.server.ThreadingHTTPServer(("127.0.0.1", 0), FakeHttpsSelkies)
-    srv_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    srv_ctx.load_cert_chain(certfile=str(cert_path), keyfile=str(key_path))
-    https_ui.socket = srv_ctx.wrap_socket(https_ui.socket, server_side=True)
-
-    threading.Thread(target=http_ui.serve_forever, daemon=True).start()
-    threading.Thread(target=https_ui.serve_forever, daemon=True).start()
-
-    free_ports = []
-    for _ in range(2):
-        with socket.socket() as s:
-            s.bind(("127.0.0.1", 0))
-            free_ports.append(s.getsockname()[1])
-    proxy_port, ui_mux_port = free_ports
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        proxy_port = s.getsockname()[1]
 
     env = os.environ.copy()
     env.update(
         {
             "PROXY_BIND_HOST": "127.0.0.1",
             "PORT": str(proxy_port),
-            "UI_MUX_PORT": str(ui_mux_port),
-            "INTERNAL_WS_PORT": "1",
-            "SELKIES_HTTP_PORT": str(http_ui.server_address[1]),
-            "SELKIES_HTTPS_PORT": str(https_ui.server_address[1]),
-            "VIEWER_ACTIVE": "true",
-            "TLS_CERT_PATH": str(cert_path),
-            "TLS_KEY_PATH": str(key_path),
-            "WS_TOKEN": "",
+            "INTERNAL_WS_PORT": str(internal_port),
+            "INTERNAL_WS_PATH": "/camoufox",
+            "WS_TOKEN": "test-secret",
+            "HEADLESS": "virtual",
+            "GEOIP": "false",
         }
     )
     proc = subprocess.Popen([node_bin, str(pkg_dir / "proxy.mjs")], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     try:
-        for port in (proxy_port, ui_mux_port):
-            deadline = time.monotonic() + 10
-            while time.monotonic() < deadline:
-                try:
-                    with socket.create_connection(("127.0.0.1", port), timeout=0.5):
-                        break
-                except OSError:
-                    time.sleep(0.1)
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            try:
+                with socket.create_connection(("127.0.0.1", proxy_port), timeout=0.5):
+                    break
+            except OSError:
+                time.sleep(0.1)
 
-        # 1. Playwright proxy /health + /viewer/ redirect on port 9223
         conn = http.client.HTTPConnection("127.0.0.1", proxy_port, timeout=5)
         conn.request("GET", "/health")
         resp = conn.getresponse()
         health = json.loads(resp.read().decode())
-        assert resp.status == 503 and health["viewerReady"] is True and health["uiMuxPort"] == ui_mux_port
+        assert resp.status == 200 and health["ready"] is True and health["engine"] == "camoufox"
+        assert "viewerEnabled" not in health
         conn.close()
 
         conn = http.client.HTTPConnection("127.0.0.1", proxy_port, timeout=5)
-        conn.request("GET", "/viewer/", headers={"Host": f"192.168.4.19:{proxy_port}"})
-        resp = conn.getresponse()
-        resp.read()
-        assert resp.status == 302
-        assert resp.getheader("Location") == f"https://192.168.4.19:{ui_mux_port}/"
+        conn.request("GET", "/json")
+        assert conn.getresponse().status == 401
         conn.close()
 
-        # 2. UI mux HTTP (Traefik upstream) -> LSIO HTTP :3000
-        conn = http.client.HTTPConnection("127.0.0.1", ui_mux_port, timeout=5)
+        conn = http.client.HTTPConnection("127.0.0.1", proxy_port, timeout=5)
+        conn.request("GET", "/json?token=test-secret")
+        resp = conn.getresponse()
+        info = json.loads(resp.read().decode())
+        assert resp.status == 200 and info["wsEndpointPath"] == "/test-secret"
+        conn.close()
+
+        conn = http.client.HTTPConnection("127.0.0.1", proxy_port, timeout=5)
         conn.request("GET", "/")
         resp = conn.getresponse()
-        assert resp.status == 200 and resp.read().decode() == "LSIO_HTTP:/"
+        html = resp.read().decode()
+        assert resp.status == 200
+        assert "Camoufox Playwright Server" in html
+        assert "Selkies" not in html
         conn.close()
 
-        # 3. UI mux HTTPS (direct LAN open) -> LSIO HTTPS :3001
-        ctx = ssl._create_unverified_context()
-        sconn = http.client.HTTPSConnection("127.0.0.1", ui_mux_port, context=ctx, timeout=5)
-        sconn.request("GET", "/")
-        sresp = sconn.getresponse()
-        assert sresp.status == 200 and sresp.read().decode() == "LSIO_HTTPS:/"
-        sconn.close()
+        # Unauthorized WebSocket upgrade rejected
+        with socket.create_connection(("127.0.0.1", proxy_port), timeout=5) as ws_unauth:
+            ws_unauth.sendall(
+                b"GET / HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n"
+            )
+            assert b"401 Unauthorized" in ws_unauth.recv(1024)
+
+        # Authorized WebSocket upgrade strips query token and rewrites target to /camoufox
+        with socket.create_connection(("127.0.0.1", proxy_port), timeout=5) as ws_auth:
+            ws_auth.sendall(
+                b"GET /?token=test-secret HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n"
+            )
+            assert b"101 Switching Protocols" in ws_auth.recv(1024)
+
+        assert any(req.startswith("GET /camoufox HTTP/1.1") for req in captured_requests)
     finally:
+        stop_upstream.set()
+        upstream_sock.close()
         proc.terminate()
         try:
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
-        http_ui.shutdown()
-        http_ui.server_close()
-        https_ui.shutdown()
-        https_ui.server_close()

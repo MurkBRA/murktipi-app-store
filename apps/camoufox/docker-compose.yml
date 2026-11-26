@@ -8,18 +8,14 @@ services:
     restart: unless-stopped
     shm_size: "${SHM_SIZE:-1gb}"
     ports:
-      - "${APP_PORT}:3003"
-      - "9223:9223"
+      - "${APP_PORT}:9223"
     volumes:
       - ${APP_DATA_DIR}/data/config:/config
     environment:
       - PUID
       - PGID
       - TZ=${TZ}
-      - CUSTOM_USER
-      - PASSWORD
       - HEADLESS=${HEADLESS:-virtual}
-      - AUTOSTART_BROWSER
       - SLIM_FONTS
       - WS_TOKEN
       - GEOIP
@@ -32,7 +28,7 @@ services:
       - PROXY_USERNAME
       - PROXY_PASSWORD
     healthcheck:
-      test: ["CMD", "/lsiopy/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9223/health', timeout=5)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9223/health', timeout=5)"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -41,7 +37,7 @@ services:
       - tipi_main_network
     x-runtipi:
       is_main: true
-      internal_port: 3003
+      internal_port: 9223
 
 networks:
   tipi_main_network:
