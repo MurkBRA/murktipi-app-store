@@ -7,11 +7,17 @@ const PORT = Number(process.env.PORT || "9223");
 const INTERNAL_HOST = "127.0.0.1";
 const INTERNAL_PORT = Number(process.env.INTERNAL_WS_PORT || "9224");
 const INTERNAL_WS_PATH = ensureLeadingSlash(process.env.INTERNAL_WS_PATH || "/camoufox");
+const SELKIES_PORT = Number(process.env.SELKIES_PORT || "8080");
+const VIEWER_PREFIX = "/viewer";
+const VIEWER_ENABLED = !["0", "false", "no", "off"].includes(
+  String(process.env.VIEWER_ACTIVE || "true").trim().toLowerCase()
+);
 const WS_TOKEN = (process.env.WS_TOKEN || "").trim();
 const HEADLESS_MODE = (process.env.HEADLESS || "virtual").trim();
 const GEOIP_MODE = (process.env.GEOIP || "false").trim();
 const CAMOUFOX_VERSION = (process.env.CAMOUFOX_LIB_VERSION || "0.5.9").trim();
 const STARTED_AT = Date.now();
+const VIEWER_COOKIE_NAME = "camoufox_viewer_auth";
 
 let activeConnections = 0;
 
@@ -23,17 +29,75 @@ function sha256(value) {
   return crypto.createHash("sha256").update(value, "utf8").digest();
 }
 
+function tokenDigestHex(value) {
+  return crypto.createHash("sha256").update(`viewer:${value}`, "utf8").digest("hex");
+}
+
 function tokenMatches(candidate) {
   if (!WS_TOKEN) return true;
   if (!candidate || typeof candidate !== "string") return false;
   return crypto.timingSafeEqual(sha256(candidate), sha256(WS_TOKEN));
 }
 
+function parseCookies(cookieHeader) {
+  const cookies = {};
+  if (!cookieHeader) return cookies;
+  for (const part of String(cookieHeader).split(";")) {
+    const eq = part.indexOf("=");
+    if (eq === -1) continue;
+    const key = part.slice(0, eq).trim();
+    const val = part.slice(eq + 1).trim();
+    if (key) cookies[key] = decodeURIComponent(val);
+  }
+  return cookies;
+}
+
 function parseReqUrl(rawUrl) {
   return new URL(rawUrl || "/", "http://localhost");
 }
 
-function isAuthorized(req) {
+function checkViewerAuth(req) {
+  if (!WS_TOKEN) return { ok: true, setCookie: false };
+
+  const url = parseReqUrl(req.url);
+  const queryToken = url.searchParams.get("token");
+  if (tokenMatches(queryToken)) {
+    return { ok: true, setCookie: true };
+  }
+
+  const cookies = parseCookies(req.headers.cookie);
+  const expectedCookie = tokenDigestHex(WS_TOKEN);
+  const cookieVal = cookies[VIEWER_COOKIE_NAME];
+  if (
+    typeof cookieVal === "string" &&
+    cookieVal.length === expectedCookie.length &&
+    crypto.timingSafeEqual(Buffer.from(cookieVal), Buffer.from(expectedCookie))
+  ) {
+    return { ok: true, setCookie: false };
+  }
+
+  const authHeader = String(req.headers.authorization || "");
+  if (authHeader.toLowerCase().startsWith("bearer ")) {
+    if (tokenMatches(authHeader.slice(7).trim())) {
+      return { ok: true, setCookie: false };
+    }
+  } else if (authHeader.toLowerCase().startsWith("basic ")) {
+    try {
+      const decoded = Buffer.from(authHeader.slice(6).trim(), "base64").toString("utf8");
+      const colon = decoded.indexOf(":");
+      const password = colon >= 0 ? decoded.slice(colon + 1) : decoded;
+      if (tokenMatches(password)) {
+        return { ok: true, setCookie: false };
+      }
+    } catch {
+      // Ignore malformed Basic Auth header
+    }
+  }
+
+  return { ok: false, setCookie: false };
+}
+
+function isWsAuthorized(req) {
   if (!WS_TOKEN) return true;
 
   const url = parseReqUrl(req.url);
@@ -52,6 +116,10 @@ function isAuthorized(req) {
   return false;
 }
 
+function isViewerPath(pathname) {
+  return pathname === VIEWER_PREFIX || pathname.startsWith(`${VIEWER_PREFIX}/`);
+}
+
 function buildInternalTarget(rawUrl) {
   const url = parseReqUrl(rawUrl);
   url.searchParams.delete("token");
@@ -59,9 +127,9 @@ function buildInternalTarget(rawUrl) {
   return qs ? `${INTERNAL_WS_PATH}?${qs}` : INTERNAL_WS_PATH;
 }
 
-function probeUpstream(timeoutMs = 1500) {
+function probeTcp(port, timeoutMs = 1500) {
   return new Promise((resolve) => {
-    const socket = net.connect({ host: INTERNAL_HOST, port: INTERNAL_PORT });
+    const socket = net.connect({ host: INTERNAL_HOST, port });
     let settled = false;
     const finish = (ok) => {
       if (settled) return;
@@ -84,14 +152,29 @@ function escapeHtml(text) {
     .replaceAll('"', "&quot;");
 }
 
-function renderStatusHtml(req, ready) {
+function renderStatusHtml(req, ready, viewerReady) {
   const hostHeader = escapeHtml(req.headers.host || `localhost:${PORT}`);
   const publicPath = WS_TOKEN ? "/<WS_TOKEN>" : INTERNAL_WS_PATH;
   const wsExample = `ws://${hostHeader}${WS_TOKEN ? "/<YOUR_WS_TOKEN>" : "/"}`;
   const badgeColor = ready ? "#10b981" : "#f59e0b";
-  const badgeLabel = ready ? "Ready" : "Starting";
+  const badgeLabel = ready ? "Playwright Ready" : "Starting";
+  const viewerBadgeColor = !VIEWER_ENABLED ? "#64748b" : viewerReady ? "#38bdf8" : "#f59e0b";
+  const viewerBadgeLabel = !VIEWER_ENABLED
+    ? "Viewer Off (Native Headless)"
+    : viewerReady
+      ? "Selkies Ready"
+      : "Selkies Starting";
   const authLabel = WS_TOKEN ? "Token Required (WS_TOKEN)" : "Open (No WS_TOKEN)";
   const uptimeSec = Math.floor((Date.now() - STARTED_AT) / 1000);
+  const viewerSection = VIEWER_ENABLED
+    ? `<div class="actions">
+         <a class="btn" href="/viewer/" target="_blank" rel="noopener">Open Live Browser Viewer (Selkies)</a>
+         <button class="btn btn-secondary" type="button" onclick="toggleEmbed()">Toggle Embedded View</button>
+       </div>
+       <div id="embedWrap" class="embed-wrap" style="display:none;">
+         <iframe id="viewerFrame" title="Selkies Live Browser" style="width:100%;height:640px;border:1px solid #1e293b;border-radius:10px;background:#020617;"></iframe>
+       </div>`
+    : `<p class="muted">Live browser viewer requires <code>HEADLESS=virtual</code> (currently running in native headless mode).</p>`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -101,19 +184,26 @@ function renderStatusHtml(req, ready) {
   <title>Camoufox Playwright Server</title>
   <style>
     :root { color-scheme: dark; }
-    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #0b1120; color: #e2e8f0; padding: 2rem; }
-    .wrap { max-width: 780px; margin: 0 auto; }
-    .card { background: #111827; border: 1px solid #1e293b; border-radius: 14px; padding: 1.5rem; margin-bottom: 1.25rem; }
+    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #0b1120; color: #e2e8f0; padding: 1.5rem; }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    .card { background: #111827; border: 1px solid #1e293b; border-radius: 14px; padding: 1.4rem; margin-bottom: 1.15rem; }
     .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; }
-    .badge { display: inline-flex; align-items: center; gap: .5rem; padding: .35rem .8rem; border-radius: 999px; font-weight: 600; font-size: .875rem; background: ${badgeColor}22; color: ${badgeColor}; border: 1px solid ${badgeColor}55; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .75rem; margin-top: 1rem; }
-    .stat { background: #0f172a; border: 1px solid #1e293b; border-radius: 10px; padding: .85rem; }
-    .label { font-size: .75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; }
-    .val { font-size: 1rem; font-weight: 600; margin-top: .25rem; word-break: break-all; }
+    .badges { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .badge { display: inline-flex; align-items: center; gap: .45rem; padding: .35rem .8rem; border-radius: 999px; font-weight: 600; font-size: .85rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .75rem; margin-top: 1rem; }
+    .stat { background: #0f172a; border: 1px solid #1e293b; border-radius: 10px; padding: .8rem; }
+    .label { font-size: .72rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; }
+    .val { font-size: .95rem; font-weight: 600; margin-top: .25rem; word-break: break-all; }
+    .actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; background: #f97316; color: #0b1120; text-decoration: none; border: none; border-radius: 8px; padding: .6rem 1rem; font-weight: 700; font-size: .9rem; cursor: pointer; }
+    .btn:hover { background: #fb923c; }
+    .btn-secondary { background: #1e293b; color: #e2e8f0; }
+    .btn-secondary:hover { background: #334155; }
+    .embed-wrap { margin-top: 1rem; }
     pre { background: #020617; border: 1px solid #1e293b; border-radius: 10px; padding: 1rem; overflow-x: auto; font-size: .85rem; line-height: 1.45; }
-    h1 { margin: 0; font-size: 1.5rem; }
-    h2 { margin: 0 0 .75rem; font-size: 1.05rem; color: #f8fafc; }
-    p { color: #94a3b8; margin: .4rem 0 0; }
+    h1 { margin: 0; font-size: 1.45rem; }
+    h2 { margin: 0 0 .6rem; font-size: 1.05rem; color: #f8fafc; }
+    p, .muted { color: #94a3b8; margin: .4rem 0 0; font-size: .92rem; }
   </style>
 </head>
 <body>
@@ -121,23 +211,27 @@ function renderStatusHtml(req, ready) {
     <div class="card">
       <div class="row">
         <div>
-          <h1>Camoufox Playwright Server</h1>
-          <p>Anti-detect Firefox WebSocket server for Playwright, Node-RED, and n8n</p>
+          <h1>Camoufox Playwright + Selkies</h1>
+          <p>Anti-detect Firefox WebSocket server with live Selkies HTML5 display streaming</p>
         </div>
-        <span class="badge">${badgeLabel}</span>
+        <div class="badges">
+          <span class="badge" style="background:${badgeColor}22;color:${badgeColor};border:1px solid ${badgeColor}55;">${badgeLabel}</span>
+          <span class="badge" style="background:${viewerBadgeColor}22;color:${viewerBadgeColor};border:1px solid ${viewerBadgeColor}55;">${viewerBadgeLabel}</span>
+        </div>
       </div>
       <div class="grid">
-        <div class="stat"><div class="label">Package Version</div><div class="val">v${escapeHtml(CAMOUFOX_VERSION)}</div></div>
+        <div class="stat"><div class="label">Camoufox</div><div class="val">v${escapeHtml(CAMOUFOX_VERSION)}</div></div>
         <div class="stat"><div class="label">Headless Mode</div><div class="val">${escapeHtml(HEADLESS_MODE)}</div></div>
         <div class="stat"><div class="label">GeoIP</div><div class="val">${escapeHtml(GEOIP_MODE || "false")}</div></div>
         <div class="stat"><div class="label">Active WS Clients</div><div class="val">${activeConnections}</div></div>
         <div class="stat"><div class="label">Authentication</div><div class="val">${escapeHtml(authLabel)}</div></div>
         <div class="stat"><div class="label">Uptime</div><div class="val">${uptimeSec}s</div></div>
       </div>
+      ${viewerSection}
     </div>
     <div class="card">
-      <h2>Playwright / Node-RED Connection Example</h2>
-      <p>WebSocket path: <code>${escapeHtml(publicPath)}</code></p>
+      <h2>Playwright / Node-RED Connection</h2>
+      <p>WebSocket path: <code>${escapeHtml(publicPath)}</code> (live browser opens in Selkies whenever a script calls <code>newPage()</code>)</p>
       <pre>const browser = await playwright.firefox.connect('${wsExample}');
 const page = await browser.newPage();
 await page.goto('https://example.com');
@@ -152,6 +246,18 @@ await browser.close();</pre>
     await browser.close()</pre>
     </div>
   </div>
+  <script>
+    function toggleEmbed() {
+      const wrap = document.getElementById('embedWrap');
+      const frame = document.getElementById('viewerFrame');
+      if (!wrap || !frame) return;
+      const open = wrap.style.display === 'none';
+      wrap.style.display = open ? 'block' : 'none';
+      if (open && !frame.getAttribute('src')) {
+        frame.setAttribute('src', '/viewer/');
+      }
+    }
+  </script>
 </body>
 </html>`;
 }
@@ -166,14 +272,44 @@ function sendJson(res, status, payload) {
   res.end(body);
 }
 
+function proxyViewerHttp(req, res) {
+  const headers = { ...req.headers };
+  delete headers.authorization;
+  const upstreamReq = http.request(
+    {
+      hostname: INTERNAL_HOST,
+      port: SELKIES_PORT,
+      path: req.url,
+      method: req.method,
+      headers,
+    },
+    (upstreamRes) => {
+      res.writeHead(upstreamRes.statusCode || 502, upstreamRes.headers);
+      upstreamRes.pipe(res);
+    }
+  );
+  upstreamReq.on("error", () => {
+    if (!res.headersSent) {
+      sendJson(res, 503, { error: "Selkies live viewer is starting or unavailable." });
+    } else {
+      res.destroy();
+    }
+  });
+  req.pipe(upstreamReq);
+}
+
 const server = http.createServer(async (req, res) => {
   const url = parseReqUrl(req.url);
 
   if (url.pathname === "/health") {
-    const ready = await probeUpstream();
-    sendJson(res, ready ? 200 : 503, {
-      status: ready ? "ok" : "starting",
+    const ready = await probeTcp(INTERNAL_PORT);
+    const viewerReady = VIEWER_ENABLED ? await probeTcp(SELKIES_PORT) : true;
+    const healthy = ready && (!VIEWER_ENABLED || viewerReady);
+    sendJson(res, healthy ? 200 : 503, {
+      status: healthy ? "ok" : "starting",
       ready,
+      viewerEnabled: VIEWER_ENABLED,
+      viewerReady,
       engine: "camoufox",
       version: CAMOUFOX_VERSION,
       headless: HEADLESS_MODE,
@@ -183,15 +319,17 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === "/json" || url.pathname === "/json/version") {
-    if (!isAuthorized(req)) {
+    if (!isWsAuthorized(req)) {
       sendJson(res, 401, { error: "Unauthorized" });
       return;
     }
-    const ready = await probeUpstream();
+    const ready = await probeTcp(INTERNAL_PORT);
     const hostHeader = req.headers.host || `localhost:${PORT}`;
     const publicPath = WS_TOKEN ? `/${WS_TOKEN}` : INTERNAL_WS_PATH;
     sendJson(res, ready ? 200 : 503, {
       ready,
+      viewerEnabled: VIEWER_ENABLED,
+      viewerPath: VIEWER_ENABLED ? `${VIEWER_PREFIX}/` : null,
       engine: "camoufox",
       browser: "firefox",
       version: CAMOUFOX_VERSION,
@@ -201,9 +339,51 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (isViewerPath(url.pathname)) {
+    if (!VIEWER_ENABLED) {
+      sendJson(res, 503, { error: "Live viewer is disabled when HEADLESS=true." });
+      return;
+    }
+    const auth = checkViewerAuth(req);
+    if (!auth.ok) {
+      res.writeHead(401, {
+        "WWW-Authenticate": 'Basic realm="Camoufox Live Viewer"',
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+      });
+      res.end("Unauthorized");
+      return;
+    }
+    if (auth.setCookie) {
+      const cleanUrl = new URL(url.toString());
+      cleanUrl.searchParams.delete("token");
+      const targetPath = cleanUrl.pathname === VIEWER_PREFIX ? `${VIEWER_PREFIX}/` : cleanUrl.pathname;
+      const qs = cleanUrl.searchParams.toString();
+      res.writeHead(302, {
+        "Set-Cookie": `${VIEWER_COOKIE_NAME}=${tokenDigestHex(WS_TOKEN)}; Path=${VIEWER_PREFIX}; HttpOnly; SameSite=Lax`,
+        Location: qs ? `${targetPath}?${qs}` : targetPath,
+      });
+      res.end();
+      return;
+    }
+    if (url.pathname === VIEWER_PREFIX) {
+      const qs = url.searchParams.toString();
+      res.writeHead(302, {
+        Location: qs ? `${VIEWER_PREFIX}/?${qs}` : `${VIEWER_PREFIX}/`,
+      });
+      res.end();
+      return;
+    }
+    proxyViewerHttp(req, res);
+    return;
+  }
+
   if (url.pathname === "/") {
-    const ready = await probeUpstream();
-    const html = renderStatusHtml(req, ready);
+    const [ready, viewerReady] = await Promise.all([
+      probeTcp(INTERNAL_PORT),
+      VIEWER_ENABLED ? probeTcp(SELKIES_PORT) : Promise.resolve(false),
+    ]);
+    const html = renderStatusHtml(req, ready, viewerReady);
     res.writeHead(200, {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-store",
@@ -216,23 +396,15 @@ const server = http.createServer(async (req, res) => {
   sendJson(res, 404, { error: "Not Found" });
 });
 
-server.on("upgrade", (req, clientSocket, head) => {
-  if (!isAuthorized(req)) {
-    clientSocket.write(
-      "HTTP/1.1 401 Unauthorized\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: 12\r\n\r\nUnauthorized"
-    );
-    clientSocket.destroy();
-    return;
-  }
-
-  const target = buildInternalTarget(req.url);
+function pipeRawUpgrade(req, clientSocket, head, targetPort, targetPath, stripAuthHeader = false) {
   const rawHeaders = [];
   for (let i = 0; i < req.rawHeaders.length; i += 2) {
+    if (stripAuthHeader && req.rawHeaders[i].toLowerCase() === "authorization") continue;
     rawHeaders.push(`${req.rawHeaders[i]}: ${req.rawHeaders[i + 1]}`);
   }
-  const handshake = `${req.method || "GET"} ${target} HTTP/${req.httpVersion || "1.1"}\r\n${rawHeaders.join("\r\n")}\r\n\r\n`;
+  const handshake = `${req.method || "GET"} ${targetPath} HTTP/${req.httpVersion || "1.1"}\r\n${rawHeaders.join("\r\n")}\r\n\r\n`;
 
-  const upstreamSocket = net.connect({ host: INTERNAL_HOST, port: INTERNAL_PORT });
+  const upstreamSocket = net.connect({ host: INTERNAL_HOST, port: targetPort });
   let cleaned = false;
   let counted = false;
 
@@ -261,7 +433,7 @@ server.on("upgrade", (req, clientSocket, head) => {
   upstreamSocket.once("error", () => {
     if (!counted && !cleaned) {
       clientSocket.write(
-        "HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: 27\r\n\r\nCamoufox server unavailable"
+        "HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: 19\r\n\r\nService unavailable"
       );
     }
     cleanup();
@@ -270,6 +442,39 @@ server.on("upgrade", (req, clientSocket, head) => {
   clientSocket.once("error", cleanup);
   upstreamSocket.once("close", cleanup);
   clientSocket.once("close", cleanup);
+}
+
+server.on("upgrade", (req, clientSocket, head) => {
+  const url = parseReqUrl(req.url);
+
+  if (isViewerPath(url.pathname)) {
+    if (!VIEWER_ENABLED) {
+      clientSocket.write(
+        "HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 15\r\n\r\nViewer disabled"
+      );
+      clientSocket.destroy();
+      return;
+    }
+    if (!checkViewerAuth(req).ok) {
+      clientSocket.write(
+        "HTTP/1.1 401 Unauthorized\r\nConnection: close\r\nContent-Length: 12\r\n\r\nUnauthorized"
+      );
+      clientSocket.destroy();
+      return;
+    }
+    pipeRawUpgrade(req, clientSocket, head, SELKIES_PORT, req.url || `${VIEWER_PREFIX}/`, true);
+    return;
+  }
+
+  if (!isWsAuthorized(req)) {
+    clientSocket.write(
+      "HTTP/1.1 401 Unauthorized\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: 12\r\n\r\nUnauthorized"
+    );
+    clientSocket.destroy();
+    return;
+  }
+
+  pipeRawUpgrade(req, clientSocket, head, INTERNAL_PORT, buildInternalTarget(req.url), false);
 });
 
 for (const sig of ["SIGTERM", "SIGINT"]) {
@@ -281,6 +486,6 @@ for (const sig of ["SIGTERM", "SIGINT"]) {
 
 server.listen(PORT, HOST, () => {
   console.log(
-    `[camoufox-proxy] Listening on http://${HOST}:${PORT} -> ws://${INTERNAL_HOST}:${INTERNAL_PORT}${INTERNAL_WS_PATH} (auth=${WS_TOKEN ? "enabled" : "disabled"})`
+    `[camoufox-proxy] Listening on http://${HOST}:${PORT} -> ws://${INTERNAL_HOST}:${INTERNAL_PORT}${INTERNAL_WS_PATH} (viewer=${VIEWER_ENABLED ? VIEWER_PREFIX + "/ -> :" + SELKIES_PORT : "disabled"}, auth=${WS_TOKEN ? "enabled" : "disabled"})`
   );
 });

@@ -87,10 +87,10 @@ Compressor de imagens em lote no navegador (`ghcr.io/murkbra/pic-smaller:1.1.0`,
 - **Porta e Build Multi-Arch:** Expõe a interface web na porta padrão `3002` (`${APP_PORT}:3000`), com `CONTAINER_NAME` opcional (`pic-smaller`), healthcheck nativo e build automática `amd64`/`arm64` via GitHub Actions para o GHCR.
 
 ### 9. 🦊 [Camoufox](apps/camoufox)
-Servidor WebSocket Playwright baseado no navegador anti-detecção **Camoufox** (`ghcr.io/murkbra/camoufox:0.5.9`, empacotando `daijro/camoufox`) com compatibilidade nativa com `playwright.firefox.connect(...)` para **Node-RED**, **n8n** e automações Playwright na porta `9223` (`${APP_PORT}:9223`).
+Servidor WebSocket Playwright baseado no navegador anti-detecção **Camoufox** (`ghcr.io/murkbra/camoufox:0.5.9`, empacotando `daijro/camoufox`) com visualizador ao vivo integrado via **Selkies** (`/viewer/`) na mesma porta `9223` (`${APP_PORT}:9223`) e compatibilidade nativa com `playwright.firefox.connect(...)` para **Node-RED**, **n8n** e automações Playwright.
 
-- **Display Virtual e Impressão Digital:** Suporta `HEADLESS` (`virtual` via Xvfb por padrão ou `true`), `GEOIP`, `OS_TARGET`, `LOCALE`, `BLOCK_IMAGES`, `BLOCK_WEBRTC`, `DISABLE_COOP`, proxy upstream (`PROXY_SERVER`/`PROXY_USERNAME`/`PROXY_PASSWORD`) e `SHM_SIZE` opcional.
-- **Dashboard & Auth Opcional:** Página de status em `/`, descoberta `/json`, healthcheck `/health` e autenticação opcional por `WS_TOKEN` (via `/<token>`, `?token=` ou `Authorization: Bearer`) com build multi-arch (`amd64`/`arm64`) no GHCR.
+- **Visualizador Ao Vivo & Display Virtual:** No modo padrão `HEADLESS=virtual`, roda em display virtual compartilhado (`Xvfb :99` + `Openbox`) transmitido pelo **Selkies** em `/viewer/`, com controle por `ENABLE_VIEWER` e `VIEWER_RESOLUTION` (`1920x1080` padrão) além de `GEOIP`, `OS_TARGET`, `LOCALE`, `BLOCK_IMAGES`, `BLOCK_WEBRTC`, `DISABLE_COOP`, proxy upstream e `SHM_SIZE` (`256m` padrão).
+- **Dashboard & Auth Opcional:** Página de status em `/` com botão direto para o navegador ao vivo (`/viewer/`), descoberta `/json`, healthcheck `/health` e autenticação unificada opcional por `WS_TOKEN` com build multi-arch (`amd64`/`arm64`) no GHCR.
 
 ---
 

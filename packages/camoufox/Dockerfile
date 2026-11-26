@@ -5,7 +5,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     XDG_CACHE_HOME=/opt/camoufox-cache \
     PORT=9223 \
     INTERNAL_WS_PORT=9224 \
-    INTERNAL_WS_PATH=/camoufox
+    INTERNAL_WS_PATH=/camoufox \
+    SELKIES_PORT=8080
 
 WORKDIR /app
 
@@ -16,6 +17,10 @@ RUN pip install --no-cache-dir -r /app/requirements.txt \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         xvfb \
+        openbox \
+        x11-xserver-utils \
+        x11-utils \
+        xauth \
         util-linux \
         libgl1 \
         libgl1-mesa-dri \

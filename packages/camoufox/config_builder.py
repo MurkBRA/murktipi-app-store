@@ -1,9 +1,12 @@
-"""Pure environment configuration parser for the Camoufox Playwright server."""
+"""Pure environment configuration parser for the Camoufox Playwright + Selkies server."""
 
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, Mapping, Optional, Union
+import re
+from typing import Any, Dict, Mapping, Optional, Tuple, Union
+
+_RES_PATTERN = re.compile(r"^([1-9][0-9]{2,3})x([1-9][0-9]{2,3})$")
 
 
 def parse_bool_env(value: Optional[str]) -> Optional[bool]:
@@ -32,7 +35,32 @@ def parse_headless_env(value: Optional[str]) -> Union[str, bool]:
     raise ValueError(f"Unsupported HEADLESS mode {value!r}; expected 'virtual', 'true', or 'false'.")
 
 
-def build_camoufox_kwargs(env: Mapping[str, str] | None = None) -> Dict[str, Any]:
+def parse_viewer_enabled(env: Mapping[str, str] | None = None) -> bool:
+    """Enable Selkies live browser streaming when running on a virtual/headed display unless disabled."""
+    source = os.environ if env is None else env
+    headless = parse_headless_env(source.get("HEADLESS"))
+    explicit = parse_bool_env(source.get("ENABLE_VIEWER"))
+    if explicit is not None:
+        return explicit and headless is not True
+    return headless is not True
+
+
+def parse_viewer_resolution(env: Mapping[str, str] | None = None) -> Tuple[int, int]:
+    """Parse initial X11 resolution WxH for Xvfb/Selkies (default 1920x1080)."""
+    source = os.environ if env is None else env
+    raw = (source.get("VIEWER_RESOLUTION") or "").strip().lower()
+    if not raw:
+        return (1920, 1080)
+    match = _RES_PATTERN.match(raw)
+    if not match:
+        raise ValueError(f"Invalid VIEWER_RESOLUTION {raw!r}; expected WIDTHxHEIGHT (e.g. 1920x1080).")
+    return int(match.group(1)), int(match.group(2))
+
+
+def build_camoufox_kwargs(
+    env: Mapping[str, str] | None = None,
+    virtual_display_override: Optional[str] = None,
+) -> Dict[str, Any]:
     """Build keyword arguments compatible with camoufox launch_options/launch_server."""
     source = os.environ if env is None else env
 
@@ -41,12 +69,15 @@ def build_camoufox_kwargs(env: Mapping[str, str] | None = None) -> Dict[str, Any
     if not internal_ws_path.startswith("/"):
         internal_ws_path = f"/{internal_ws_path}"
 
+    headless_mode = parse_headless_env(source.get("HEADLESS"))
     kwargs: Dict[str, Any] = {
         "host": "127.0.0.1",
         "port": internal_port,
         "ws_path": internal_ws_path,
-        "headless": parse_headless_env(source.get("HEADLESS")),
+        "headless": False if virtual_display_override else headless_mode,
     }
+    if virtual_display_override:
+        kwargs["virtual_display"] = virtual_display_override
 
     geoip = parse_bool_env(source.get("GEOIP"))
     if geoip is not None:

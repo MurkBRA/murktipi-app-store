@@ -11,7 +11,7 @@ def test_camoufox_config_fields_and_secrets(get_app_config):
     assert config["exposable"] is True
     assert config["version"] == "0.5.9"
     assert config["version"] != "latest"
-    assert config["tipi_version"] >= 1
+    assert config["tipi_version"] >= 2
     assert set(config["categories"]) == {"development", "automation", "utilities"}
     assert config["supported_architectures"] == ["amd64", "arm64"]
 
@@ -22,6 +22,8 @@ def test_camoufox_config_fields_and_secrets(get_app_config):
     expected_vars = {
         "CONTAINER_NAME",
         "HEADLESS",
+        "ENABLE_VIEWER",
+        "VIEWER_RESOLUTION",
         "WS_TOKEN",
         "GEOIP",
         "OS_TARGET",
@@ -64,7 +66,7 @@ def test_camoufox_compose_structure_and_passthrough(get_app_config, get_app_comp
     assert svc.get("image") == f"ghcr.io/murkbra/camoufox:{config['version']}"
     assert svc.get("container_name") == "${CONTAINER_NAME:-camoufox}"
     assert svc.get("restart") == "unless-stopped"
-    assert svc.get("shm_size") == "${SHM_SIZE:-64m}"
+    assert svc.get("shm_size") == "${SHM_SIZE:-256m}"
 
     ports = [str(p) for p in svc.get("ports", [])]
     assert "${APP_PORT}:9223" in ports
@@ -74,6 +76,8 @@ def test_camoufox_compose_structure_and_passthrough(get_app_config, get_app_comp
     assert "HEADLESS=${HEADLESS:-virtual}" in env
     assert "TZ=${TZ}" in env
     for var in (
+        "ENABLE_VIEWER",
+        "VIEWER_RESOLUTION",
         "WS_TOKEN",
         "GEOIP",
         "OS_TARGET",
@@ -102,10 +106,13 @@ def test_camoufox_package_dockerfile_workflow_and_builder(repo_root, get_app_con
 
     req_text = (pkg_dir / "requirements.txt").read_text(encoding="utf-8")
     assert f"camoufox[geoip]=={config['version']}" in req_text
+    assert "selkies==" in req_text
 
     df_text = (pkg_dir / "Dockerfile").read_text(encoding="utf-8")
     assert "USER camoufox" in df_text
     assert "camoufox fetch" in df_text
+    assert "openbox" in df_text
+    assert "SELKIES_PORT=8080" in df_text
     assert "EXPOSE 9223" in df_text
 
     workflow = repo_root / ".github" / "workflows" / "docker-camoufox.yml"
@@ -118,14 +125,22 @@ def test_camoufox_package_dockerfile_workflow_and_builder(repo_root, get_app_con
 
     sys.path.insert(0, str(pkg_dir))
     try:
-        from config_builder import build_camoufox_kwargs
+        from config_builder import build_camoufox_kwargs, parse_viewer_enabled, parse_viewer_resolution
 
-        built = build_camoufox_kwargs({"OS_TARGET": "linux", "GEOIP": "true", "WS_TOKEN": "ignored-here"})
+        assert parse_viewer_enabled({}) is True
+        assert parse_viewer_enabled({"HEADLESS": "true"}) is False
+        assert parse_viewer_resolution({}) == (1920, 1080)
+
+        built = build_camoufox_kwargs(
+            {"OS_TARGET": "linux", "GEOIP": "true", "WS_TOKEN": "ignored-here"},
+            virtual_display_override=":99",
+        )
         assert built == {
             "host": "127.0.0.1",
             "port": 9224,
             "ws_path": "/camoufox",
-            "headless": "virtual",
+            "headless": False,
+            "virtual_display": ":99",
             "geoip": True,
             "os": "linux",
         }
