@@ -38,7 +38,7 @@ Tracker:
 - REG-031: Dockhand must pin fnsys/dockhand version, adjust port off 3000, omit PUID/PGID, require user-defined POSTGRES_USER, and auto-generate URL-safe random POSTGRES_PASSWORD
 - REG-032: ImgCompress must pin karimz1/imgcompress version (never :latest), map ${APP_PORT}:5000 on host port 3001, keep optional env vars pass-through, and preserve healthcheck
 - REG-033: Pic Smaller must pin ghcr.io/murkbra/pic-smaller version matching config.json and CI workflow, map ${APP_PORT}:3000 on host port 3002, bump tipi_version >= 2, and preserve healthcheck
-- REG-034: Camoufox must pin ghcr.io/murkbra/camoufox matching config.json and CI workflow on slim Python without Selkies, map ${APP_PORT}:9223, mask WS_TOKEN/PROXY_PASSWORD, and keep optional env vars pass-through
+- REG-034: Camoufox must pin ghcr.io/murkbra/camoufox matching config.json and CI workflow on slim Python without Selkies, keep essential 5-field UI, map ${APP_PORT}:9223, mask WS_TOKEN, and keep optional env vars pass-through
 """
 
 import re
@@ -726,7 +726,7 @@ def test_reg_033_pic_smaller_pinned_ghcr_workflow_and_port_3002(repo_root, get_a
 
 def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo_root, get_app_config, get_app_compose):
     """[REG-034] Camoufox must pin ghcr.io/murkbra/camoufox matching config.json and requirements.txt
-    on python:3.12-slim without Selkies VNC, expose port 9223, mask secrets, and include healthcheck."""
+    on python:3.12-slim without Selkies VNC, keep only the 5 essential UI fields, expose port 9223, mask WS_TOKEN, and include healthcheck."""
     cfg = get_app_config("camoufox")
     compose = get_app_compose("camoufox")
     wf_text = (repo_root / ".github" / "workflows" / "docker-camoufox.yml").read_text(encoding="utf-8")
@@ -737,35 +737,17 @@ def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo
     assert cfg.get("https") is None
 
     fields = {f["env_variable"]: f for f in cfg.get("form_fields", [])}
-    assert "TZ" not in fields
-    for removed in ("CUSTOM_USER", "PASSWORD", "AUTOSTART_BROWSER"):
-        assert removed not in fields
+    assert set(fields.keys()) == {"CONTAINER_NAME", "WS_TOKEN", "HEADLESS", "SLIM_FONTS", "GEOIP"}
     assert fields["WS_TOKEN"].get("type") == "password"
-    assert fields["PROXY_PASSWORD"].get("type") == "password"
-    for var in (
-        "PUID",
-        "PGID",
-        "SLIM_FONTS",
-        "WS_TOKEN",
-        "GEOIP",
-        "OS_TARGET",
-        "LOCALE",
-        "BLOCK_IMAGES",
-        "BLOCK_WEBRTC",
-        "DISABLE_COOP",
-        "PROXY_SERVER",
-        "PROXY_USERNAME",
-        "PROXY_PASSWORD",
-        "SHM_SIZE",
-    ):
+    for var in ("SLIM_FONTS", "WS_TOKEN", "GEOIP"):
         assert fields[var].get("required") is False
         assert "default" not in fields[var]
 
     svc = compose["services"]["camoufox"]
     assert svc.get("image") == f"ghcr.io/murkbra/camoufox:{version}"
     assert svc.get("container_name") == "${CONTAINER_NAME:-camoufox}"
-    assert svc.get("shm_size") == "${SHM_SIZE:-1gb}"
-    assert cfg.get("tipi_version", 0) >= 6
+    assert svc.get("shm_size") == "1gb"
+    assert cfg.get("tipi_version", 0) >= 7
     ports = [str(p) for p in svc.get("ports", [])]
     assert ports == ["${APP_PORT}:9223"]
     assert "${APP_DATA_DIR}/data/config:/config" in [str(v) for v in svc.get("volumes", [])]
@@ -773,23 +755,7 @@ def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo
     assert "healthcheck" in svc
     env = [str(e) for e in svc.get("environment", [])]
     assert "HEADLESS=${HEADLESS:-virtual}" in env and "TZ=${TZ}" in env
-    for removed in ("CUSTOM_USER", "PASSWORD", "AUTOSTART_BROWSER"):
-        assert removed not in env
-    for var in (
-        "PUID",
-        "PGID",
-        "SLIM_FONTS",
-        "WS_TOKEN",
-        "GEOIP",
-        "OS_TARGET",
-        "LOCALE",
-        "BLOCK_IMAGES",
-        "BLOCK_WEBRTC",
-        "DISABLE_COOP",
-        "PROXY_SERVER",
-        "PROXY_USERNAME",
-        "PROXY_PASSWORD",
-    ):
+    for var in ("SLIM_FONTS", "WS_TOKEN", "GEOIP"):
         assert var in env
     df_text = (repo_root / "packages" / "camoufox" / "Dockerfile").read_text(encoding="utf-8")
     assert "FROM python:3.12-slim" in df_text

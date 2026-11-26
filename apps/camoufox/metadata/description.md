@@ -16,11 +16,10 @@ await browser.close();
 
 If `WS_TOKEN` is set, pass the token via path (`ws://<host>:9223/<token>`), query parameter (`ws://<host>:9223/?token=<token>`), or `Authorization: Bearer <token>`. Opening `/` in a browser shows live connection details and startup status, while `/json` and `/health` provide endpoint discovery and readiness checks.
 
-## Persistent `/config` Cache & Key Options
+## Essential Configuration & `/config` Cache
 
 - **Persistent `/config` Cache (`${APP_DATA_DIR}/data/config:/config`):** Keeps the Docker image slim by downloading the pinned Camoufox binary (and GeoIP database only when `GEOIP=true`) on first startup.
-- **Headless Mode (`HEADLESS`):** Defaults to `virtual`, using Camoufox's built-in `Xvfb` virtual display; set `true` for native headless without `Xvfb`.
+- **Display Mode (`HEADLESS`):** Defaults to `virtual`, using Camoufox's built-in `Xvfb` virtual display; set `true` for native headless without `Xvfb`.
 - **Slim Fonts (`SLIM_FONTS`):** Optional flag (`true`) that prunes large (>5 MB) CJK and Apple Emoji font files inside `/config/.cache` to save ~1.6 GB of disk space.
-- **Permissions (`PUID` / `PGID`):** Optional host UID/GID mapping for `/config` files.
-- **GeoIP & Fingerprint Controls:** Optional `GEOIP`, `OS_TARGET` (`windows`/`macos`/`linux`), `LOCALE`, `BLOCK_IMAGES`, `BLOCK_WEBRTC`, `DISABLE_COOP`, and `PROXY_SERVER` / `PROXY_USERNAME` / `PROXY_PASSWORD`.
-- **Shared Memory (`SHM_SIZE`):** Defaults to `1gb` for stable browser rendering.
+- **GeoIP (`GEOIP`):** Optional flag (`true`) to automatically derive geolocation, timezone, WebRTC IP, and locale when routing traffic through proxies.
+- **Advanced Environment Overrides:** Additional server flags (`PROXY_SERVER`, `OS_TARGET`, `LOCALE`, `BLOCK_IMAGES`, `BLOCK_WEBRTC`, `DISABLE_COOP`, `PUID`/`PGID`) remain supported if added via Runtipi custom `user-config` Compose overrides.

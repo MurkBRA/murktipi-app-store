@@ -21,24 +21,19 @@ def test_camoufox_config_fields_and_secrets(get_app_config):
     assert config["exposable"] is True
     assert config["version"] == "0.5.9"
     assert config["version"] != "latest"
-    assert config["tipi_version"] >= 6
+    assert config["tipi_version"] >= 7
     assert set(config["categories"]) == {"development", "automation", "utilities"}
     assert config["supported_architectures"] == ["amd64", "arm64"]
 
     form_fields = config.get("form_fields", [])
     fields_by_var = {f["env_variable"]: f for f in form_fields}
     assert "TZ" not in fields_by_var
-    for removed in ("CUSTOM_USER", "PASSWORD", "AUTOSTART_BROWSER"):
-        assert removed not in fields_by_var
-
-    expected_vars = {
-        "CONTAINER_NAME",
+    for removed in (
+        "CUSTOM_USER",
+        "PASSWORD",
+        "AUTOSTART_BROWSER",
         "PUID",
         "PGID",
-        "WS_TOKEN",
-        "HEADLESS",
-        "SLIM_FONTS",
-        "GEOIP",
         "OS_TARGET",
         "LOCALE",
         "BLOCK_IMAGES",
@@ -48,6 +43,15 @@ def test_camoufox_config_fields_and_secrets(get_app_config):
         "PROXY_USERNAME",
         "PROXY_PASSWORD",
         "SHM_SIZE",
+    ):
+        assert removed not in fields_by_var
+
+    expected_vars = {
+        "CONTAINER_NAME",
+        "WS_TOKEN",
+        "HEADLESS",
+        "SLIM_FONTS",
+        "GEOIP",
     }
     assert set(fields_by_var.keys()) == expected_vars
 
@@ -59,10 +63,9 @@ def test_camoufox_config_fields_and_secrets(get_app_config):
     assert headless["default"] == "virtual"
     assert [o["value"] for o in headless["options"]] == ["virtual", "true"]
 
-    for secret_var in ("WS_TOKEN", "PROXY_PASSWORD"):
-        assert fields_by_var[secret_var]["type"] == "password"
-        assert fields_by_var[secret_var]["required"] is False
-        assert "default" not in fields_by_var[secret_var]
+    assert fields_by_var["WS_TOKEN"]["type"] == "password"
+    assert fields_by_var["WS_TOKEN"]["required"] is False
+    assert "default" not in fields_by_var["WS_TOKEN"]
 
     for opt_var in expected_vars - {"CONTAINER_NAME", "HEADLESS"}:
         assert fields_by_var[opt_var]["required"] is False
@@ -79,7 +82,7 @@ def test_camoufox_compose_structure_and_passthrough(get_app_config, get_app_comp
     assert svc.get("image") == f"ghcr.io/murkbra/camoufox:{config['version']}"
     assert svc.get("container_name") == "${CONTAINER_NAME:-camoufox}"
     assert svc.get("restart") == "unless-stopped"
-    assert svc.get("shm_size") == "${SHM_SIZE:-1gb}"
+    assert svc.get("shm_size") == "1gb"
 
     ports = [str(p) for p in svc.get("ports", [])]
     assert ports == ["${APP_PORT}:9223"]
@@ -91,23 +94,7 @@ def test_camoufox_compose_structure_and_passthrough(get_app_config, get_app_comp
     assert isinstance(env, list)
     assert "HEADLESS=${HEADLESS:-virtual}" in env
     assert "TZ=${TZ}" in env
-    for removed in ("CUSTOM_USER", "PASSWORD", "AUTOSTART_BROWSER"):
-        assert removed not in env
-    for var in (
-        "PUID",
-        "PGID",
-        "SLIM_FONTS",
-        "WS_TOKEN",
-        "GEOIP",
-        "OS_TARGET",
-        "LOCALE",
-        "BLOCK_IMAGES",
-        "BLOCK_WEBRTC",
-        "DISABLE_COOP",
-        "PROXY_SERVER",
-        "PROXY_USERNAME",
-        "PROXY_PASSWORD",
-    ):
+    for var in ("SLIM_FONTS", "WS_TOKEN", "GEOIP"):
         assert var in env
         assert not any(str(e).startswith(f"{var}=") for e in env)
 

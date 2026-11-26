@@ -89,8 +89,8 @@ Compressor de imagens em lote no navegador (`ghcr.io/murkbra/pic-smaller:1.1.0`,
 ### 9. 🦊 [Camoufox](apps/camoufox)
 Servidor WebSocket Playwright oficial do navegador anti-detecção **Camoufox** (`ghcr.io/murkbra/camoufox:0.5.9`, empacotando `daijro/camoufox` sobre imagem enxuta **`python:3.12-slim`** sem Selkies/VNC), expondo `playwright.firefox.connect(...)`, página de status, `/json` e `/health` na porta padrão `9223` (`${APP_PORT}:9223`).
 
-- **Imagem Leve + Cache `/config`:** Mantém a imagem Docker pequena baixando o binário fixado do navegador no volume persistente `${APP_DATA_DIR}/data/config:/config` na primeira inicialização (e o banco GeoIP apenas se `GEOIP=true`), com suporte opcional a `PUID`/`PGID` e `SLIM_FONTS=true` para economizar ~1,6 GB em disco.
-- **Automação Anti-Detect:** Suporta `HEADLESS=virtual` (via `Xvfb` nativo do Camoufox) ou `HEADLESS=true`, autenticação opcional por `WS_TOKEN`, `OS_TARGET`, `LOCALE`, `PROXY_SERVER` e builds multi-arch `amd64`/`arm64` no GHCR.
+- **Imagem Leve + Cache `/config`:** Mantém a imagem Docker pequena baixando o binário fixado do navegador no volume persistente `${APP_DATA_DIR}/data/config:/config` na primeira inicialização (e o banco GeoIP apenas se `GEOIP=true`), com opção `SLIM_FONTS=true` para economizar ~1,6 GB em disco.
+- **Formulário Enxuto (5 campos):** Configura `CONTAINER_NAME`, `WS_TOKEN`, `HEADLESS` (`virtual` via `Xvfb` ou `true` nativo), `SLIM_FONTS` e `GEOIP` diretamente pela loja, mantendo builds multi-arch `amd64`/`arm64` no GHCR.
 
 ---
 
