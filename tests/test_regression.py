@@ -39,7 +39,7 @@ Tracker:
 - REG-032: ImgCompress must pin karimz1/imgcompress version (never :latest), map ${APP_PORT}:5000 on host port 3001, keep optional env vars pass-through, and preserve healthcheck
 - REG-033: Pic Smaller must pin ghcr.io/murkbra/pic-smaller version matching config.json and CI workflow, map ${APP_PORT}:3000 on host port 3002, bump tipi_version >= 2, and preserve healthcheck
 - REG-034: Camoufox must pin ghcr.io/murkbra/camoufox matching config.json and CI workflow on slim Python without Selkies, map ${APP_PORT}:9223, mask WS_TOKEN, and keep optional fingerprint env vars pass-through
-- REG-035: Ngrok must use official single-container ngrok/ngrok:3.39.13-alpine (no extra IPAM subnet/depends_on), require NGROK_AUTHTOKEN + NGROK_URL, keep NGROK_TARGET + CONTAINER_NAME optional, and map ${APP_PORT}:4040
+- REG-035: Ngrok must use official single-container ngrok/ngrok:alpine (no extra IPAM subnet/depends_on), require NGROK_AUTHTOKEN + NGROK_URL, keep NGROK_TARGET + CONTAINER_NAME optional, and map ${APP_PORT}:4040
 """
 
 import re
@@ -792,15 +792,14 @@ def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo
 
 
 def test_reg_035_ngrok_pinned_optional_filter_inline_base64_and_no_host_mount(repo_root, get_app_config, get_app_compose):
-    """[REG-035] Ngrok must run as a single official container ngrok/ngrok:3.39.13-alpine matching config.json,
+    """[REG-035] Ngrok must run as a single official container ngrok/ngrok:alpine matching config.json,
     require NGROK_AUTHTOKEN and NGROK_URL, keep NGROK_TARGET and CONTAINER_NAME optional, map ${APP_PORT}:4040, and omit volumes/depends_on."""
     cfg = get_app_config("ngrok")
     compose = get_app_compose("ngrok")
 
-    version = str(cfg.get("version", ""))
-    assert version and version != "latest"
+    assert cfg.get("version") == "alpine"
     assert cfg.get("port") == 4040
-    assert cfg.get("tipi_version", 0) >= 3
+    assert cfg.get("tipi_version", 0) >= 4
 
     fields = {f["env_variable"]: f for f in cfg.get("form_fields", [])}
     assert set(fields.keys()) == {"NGROK_AUTHTOKEN", "NGROK_URL", "NGROK_TARGET", "CONTAINER_NAME"}
@@ -816,7 +815,7 @@ def test_reg_035_ngrok_pinned_optional_filter_inline_base64_and_no_host_mount(re
     services = compose["services"]
     assert list(services.keys()) == ["ngrok"]
     ng = services["ngrok"]
-    assert ng.get("image") == f"ngrok/ngrok:{version}-alpine"
+    assert ng.get("image") == "ngrok/ngrok:alpine"
     assert ng.get("command") == "http --url=${NGROK_URL} ${NGROK_TARGET:-80}"
     assert [str(p) for p in ng.get("ports", [])] == ["${APP_PORT}:4040"]
     assert ng.get("x-runtipi", {}).get("internal_port") == 4040

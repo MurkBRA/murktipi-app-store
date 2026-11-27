@@ -8,9 +8,8 @@ def test_ngrok_config_fields_and_secrets(get_app_config):
     assert config["port"] == 4040
     assert config["dynamic_config"] is True
     assert config["exposable"] is True
-    assert config["version"] == "3.39.13"
-    assert config["version"] != "latest"
-    assert config["tipi_version"] >= 3
+    assert config["version"] == "alpine"
+    assert config["tipi_version"] >= 4
     assert set(config["categories"]) == {"network", "utilities", "development"}
     assert config["supported_architectures"] == ["amd64", "arm64"]
 
@@ -44,7 +43,7 @@ def test_ngrok_compose_official_single_container(repo_root, get_app_config, get_
     # Must stay single-service so Runtipi never injects a per-app IPAM subnet network or depends_on
     assert list(services.keys()) == ["ngrok"]
     ng = services["ngrok"]
-    assert ng.get("image") == f"ngrok/ngrok:{config['version']}-alpine"
+    assert ng.get("image") == "ngrok/ngrok:alpine"
     assert ng.get("container_name") == "${CONTAINER_NAME:-ngrok}"
     assert ng.get("command") == "http --url=${NGROK_URL} ${NGROK_TARGET:-80}"
     assert [str(p) for p in ng.get("ports", [])] == ["${APP_PORT}:4040"]
