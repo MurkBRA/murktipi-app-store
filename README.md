@@ -93,10 +93,9 @@ Servidor WebSocket Playwright oficial do navegador anti-detecção **Camoufox** 
 - **Configuração Direta (10 campos):** Configura `CONTAINER_NAME`, `WS_TOKEN`, `HEADLESS` (`virtual` via `Xvfb` ou `true` nativo), `SLIM_FONTS`, `GEOIP`, `OS_TARGET`, `LOCALE`, `BLOCK_IMAGES`, `BLOCK_WEBRTC` e `DISABLE_COOP` diretamente pela loja, mantendo builds multi-arch `amd64`/`arm64` no GHCR.
 
 ### 10. 🌐 [Ngrok](apps/ngrok)
-Agente oficial **Ngrok** empacotado em container único leve (`ghcr.io/murkbra/ngrok:3.39.13`, unindo o binário `ngrok 3.39.13` e `nginx:1.31.10-alpine` opcional), com inspetor web na porta `4040` (`${APP_PORT}:4040`), `NGROK_URL` e `NGROK_AUTHTOKEN` obrigatórios, zero volumes de host e zero sub-rede IPAM extra ou `depends_on` no Runtipi.
+Agente oficial de túneis **Ngrok** (`ngrok/ngrok:3.39.13-alpine`) em container único padrão, com inspetor web na porta `4040` (`${APP_PORT}:4040`), zero volumes de host e sem sub-rede IPAM extra ou `depends_on` no Runtipi.
 
-- **Modo com Filtro (`ENABLE_NGINX_FILTER=true`, padrão):** Inicia o Nginx internamente com a config padrão embutida (ou `NGINX_CONF_BASE64`) entregando `404` na raiz `/` e encaminhando demais rotas/webhooks (como `/telegram`) para `runtipi-reverse-proxy:80`.
-- **Modo Direto (`ENABLE_NGINX_FILTER=false`):** Não inicia o Nginx e aponta `ngrok http --url=<NGROK_URL> <NGROK_TARGET>` direto para `80`, `8080` ou `container:porta`, com builds multi-arch `amd64`/`arm64` no GHCR.
+- **Configuração Direta:** `NGROK_AUTHTOKEN` e `NGROK_URL` obrigatórios com `NGROK_TARGET` (padrão `80`, ex.: `80`, `8080`, `runtipi-reverse-proxy:80` ou `container:porta`) e `CONTAINER_NAME` opcionais, executando `ngrok http --url=${NGROK_URL} ${NGROK_TARGET:-80}`.
 
 ---
 
@@ -134,7 +133,7 @@ Este repositório possui uma suíte rigorosa de testes automatizados e uma polí
 - `tests/test_imgcompress.py`: Testes específicos do ImgCompress (`karimz1/imgcompress:1.0.0`, mapeamento `3001 -> 5000`, healthcheck `/container/healthcheck.py`, variáveis opcionais pass-through, `CONTAINER_NAME` configurável e `logo.jpg`).
 - `tests/test_pic_smaller.py`: Testes específicos do Pic Smaller (`ghcr.io/murkbra/pic-smaller:1.1.0`, mapeamento `3002 -> 3000`, workflow multi-arch no GHCR, healthcheck, `CONTAINER_NAME` configurável e `logo.jpg`).
 - `tests/test_camoufox.py`: Testes específicos do Camoufox (`ghcr.io/murkbra/camoufox:0.5.9`, mapeamento `9223 -> 9223`, pacote `packages/camoufox/`, workflow multi-arch no GHCR, segredos mascarados, healthcheck e `logo.jpg`).
-- `tests/test_ngrok.py`: Testes específicos do Ngrok (`ghcr.io/murkbra/ngrok:3.39.13`, serviço único sem rede IPAM/`depends_on`, mapeamento `4040 -> 4040`, `NGROK_URL` e `NGROK_AUTHTOKEN` obrigatórios, filtro opcional em `packages/ngrok/` e `logo.jpg`).
+- `tests/test_ngrok.py`: Testes específicos do Ngrok (imagem oficial `ngrok/ngrok:3.39.13-alpine`, container único sem rede IPAM/`depends_on`, mapeamento `4040 -> 4040`, `NGROK_AUTHTOKEN` e `NGROK_URL` obrigatórios, `NGROK_TARGET`/`CONTAINER_NAME` opcionais e `logo.jpg`).
 - `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-035`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
 - `.github/workflows/ci.yml`: Automação contínua no GitHub Actions disparada a cada push e pull request.
 

@@ -3,18 +3,15 @@ x-runtipi:
 
 services:
   ngrok:
-    image: ghcr.io/murkbra/ngrok:3.39.13
+    image: ngrok/ngrok:3.39.13-alpine
     container_name: "${CONTAINER_NAME:-ngrok}"
     restart: unless-stopped
+    command: http --url=${NGROK_URL} ${NGROK_TARGET:-80}
     ports:
       - "${APP_PORT}:4040"
     environment:
       - TZ=${TZ}
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
-      - NGROK_URL=${NGROK_URL}
-      - ENABLE_NGINX_FILTER=${ENABLE_NGINX_FILTER:-true}
-      - NGROK_TARGET
-      - NGINX_CONF_BASE64
     healthcheck:
       test: ["CMD", "nc", "-z", "127.0.0.1", "4040"]
       interval: 30s

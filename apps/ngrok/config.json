@@ -5,10 +5,10 @@
   "port": 4040,
   "available": true,
   "categories": ["network", "utilities", "development"],
-  "description": "Official Ngrok tunnel agent combined with an optional built-in Nginx Traefik filter (ghcr.io/murkbra/ngrok:3.39.13) in a single lightweight Alpine container — zero host config mounts, zero extra IPAM subnets, required static NGROK_URL, and local web inspector on port 4040.",
-  "short_desc": "Ngrok tunnel agent with optional built-in Nginx Traefik filter",
+  "description": "Official Ngrok tunnel agent (ngrok/ngrok:3.39.13-alpine) running as a single lightweight container with local web inspector on port 4040, required NGROK_AUTHTOKEN and NGROK_URL, and configurable NGROK_TARGET.",
+  "short_desc": "Official Ngrok tunnel agent (ngrok/ngrok)",
   "author": "ngrok",
-  "tipi_version": 2,
+  "tipi_version": 3,
   "version": "3.39.13",
   "source": "https://github.com/ngrok",
   "website": "https://ngrok.com",
@@ -33,29 +33,10 @@
     },
     {
       "type": "text",
-      "label": "ENABLE_NGINX_FILTER",
-      "hint": "Enable the built-in optional Nginx filter (serves 404 on / and proxies all other paths to runtipi-reverse-proxy:80). Disable to tunnel directly to NGROK_TARGET without starting Nginx. Default: true.",
-      "env_variable": "ENABLE_NGINX_FILTER",
-      "default": "true",
-      "required": true,
-      "options": [
-        { "label": "Enabled — built-in Nginx 404 filter -> Traefik (Default)", "value": "true" },
-        { "label": "Disabled — tunnel directly to NGROK_TARGET", "value": "false" }
-      ]
-    },
-    {
-      "type": "text",
       "label": "NGROK_TARGET",
-      "hint": "Direct upstream port or host:port (for example 80, 8080, or container:8080) used when the Nginx filter is disabled. Leave blank to default to 80.",
+      "hint": "Target port or host:port forwarded by Ngrok (for example 80, 8080, runtipi-reverse-proxy:80, or container:3000). Leave blank to default to 80.",
       "placeholder": "8080",
       "env_variable": "NGROK_TARGET",
-      "required": false
-    },
-    {
-      "type": "text",
-      "label": "NGINX_CONF_BASE64",
-      "hint": "Optional custom Base64 or data:application/octet-stream;base64,... Nginx server block used when the Nginx filter is enabled. Leave blank to use the built-in default configuration.",
-      "env_variable": "NGINX_CONF_BASE64",
       "required": false
     },
     {
