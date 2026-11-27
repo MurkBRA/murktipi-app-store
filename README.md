@@ -90,7 +90,7 @@ Compressor de imagens em lote no navegador (`ghcr.io/murkbra/pic-smaller:1.1.0`,
 Servidor WebSocket Playwright oficial do navegador anti-detecção **Camoufox** (`ghcr.io/murkbra/camoufox:0.5.9`, empacotando `daijro/camoufox` sobre imagem enxuta **`python:3.12-slim`** sem Selkies/VNC), expondo `playwright.firefox.connect(...)`, página de status, `/json` e `/health` na porta padrão `9223` (`${APP_PORT}:9223`).
 
 - **Imagem Leve + Cache `/config`:** Mantém a imagem Docker pequena baixando o binário fixado do navegador no volume persistente `${APP_DATA_DIR}/data/config:/config` na primeira inicialização (e o banco GeoIP apenas se `GEOIP=true`), com opção `SLIM_FONTS=true` para economizar ~1,6 GB em disco.
-- **Formulário Enxuto (5 campos):** Configura `CONTAINER_NAME`, `WS_TOKEN`, `HEADLESS` (`virtual` via `Xvfb` ou `true` nativo), `SLIM_FONTS` e `GEOIP` diretamente pela loja, mantendo builds multi-arch `amd64`/`arm64` no GHCR.
+- **Configuração Direta (10 campos):** Configura `CONTAINER_NAME`, `WS_TOKEN`, `HEADLESS` (`virtual` via `Xvfb` ou `true` nativo), `SLIM_FONTS`, `GEOIP`, `OS_TARGET`, `LOCALE`, `BLOCK_IMAGES`, `BLOCK_WEBRTC` e `DISABLE_COOP` diretamente pela loja, mantendo builds multi-arch `amd64`/`arm64` no GHCR.
 
 ### 10. 🌐 [Ngrok](apps/ngrok)
 Agente oficial **Ngrok** empacotado em container único leve (`ghcr.io/murkbra/ngrok:3.39.13`, unindo o binário `ngrok 3.39.13` e `nginx:1.31.10-alpine` opcional), com inspetor web na porta `4040` (`${APP_PORT}:4040`), `NGROK_URL` e `NGROK_AUTHTOKEN` obrigatórios, zero volumes de host e zero sub-rede IPAM extra ou `depends_on` no Runtipi.

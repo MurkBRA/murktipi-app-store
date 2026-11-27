@@ -21,7 +21,7 @@ def test_camoufox_config_fields_and_secrets(get_app_config):
     assert config["exposable"] is True
     assert config["version"] == "0.5.9"
     assert config["version"] != "latest"
-    assert config["tipi_version"] >= 7
+    assert config["tipi_version"] >= 8
     assert set(config["categories"]) == {"development", "automation", "utilities"}
     assert config["supported_architectures"] == ["amd64", "arm64"]
 
@@ -34,11 +34,6 @@ def test_camoufox_config_fields_and_secrets(get_app_config):
         "AUTOSTART_BROWSER",
         "PUID",
         "PGID",
-        "OS_TARGET",
-        "LOCALE",
-        "BLOCK_IMAGES",
-        "BLOCK_WEBRTC",
-        "DISABLE_COOP",
         "PROXY_SERVER",
         "PROXY_USERNAME",
         "PROXY_PASSWORD",
@@ -52,6 +47,11 @@ def test_camoufox_config_fields_and_secrets(get_app_config):
         "HEADLESS",
         "SLIM_FONTS",
         "GEOIP",
+        "OS_TARGET",
+        "LOCALE",
+        "BLOCK_IMAGES",
+        "BLOCK_WEBRTC",
+        "DISABLE_COOP",
     }
     assert set(fields_by_var.keys()) == expected_vars
 
@@ -94,7 +94,16 @@ def test_camoufox_compose_structure_and_passthrough(get_app_config, get_app_comp
     assert isinstance(env, list)
     assert "HEADLESS=${HEADLESS:-virtual}" in env
     assert "TZ=${TZ}" in env
-    for var in ("SLIM_FONTS", "WS_TOKEN", "GEOIP"):
+    for var in (
+        "SLIM_FONTS",
+        "WS_TOKEN",
+        "GEOIP",
+        "OS_TARGET",
+        "LOCALE",
+        "BLOCK_IMAGES",
+        "BLOCK_WEBRTC",
+        "DISABLE_COOP",
+    ):
         assert var in env
         assert not any(str(e).startswith(f"{var}=") for e in env)
 

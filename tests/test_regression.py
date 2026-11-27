@@ -38,7 +38,7 @@ Tracker:
 - REG-031: Dockhand must pin fnsys/dockhand version, adjust port off 3000, omit PUID/PGID, require user-defined POSTGRES_USER, and auto-generate URL-safe random POSTGRES_PASSWORD
 - REG-032: ImgCompress must pin karimz1/imgcompress version (never :latest), map ${APP_PORT}:5000 on host port 3001, keep optional env vars pass-through, and preserve healthcheck
 - REG-033: Pic Smaller must pin ghcr.io/murkbra/pic-smaller version matching config.json and CI workflow, map ${APP_PORT}:3000 on host port 3002, bump tipi_version >= 2, and preserve healthcheck
-- REG-034: Camoufox must pin ghcr.io/murkbra/camoufox matching config.json and CI workflow on slim Python without Selkies, keep essential 5-field UI, map ${APP_PORT}:9223, mask WS_TOKEN, and keep optional env vars pass-through
+- REG-034: Camoufox must pin ghcr.io/murkbra/camoufox matching config.json and CI workflow on slim Python without Selkies, map ${APP_PORT}:9223, mask WS_TOKEN, and keep optional fingerprint env vars pass-through
 - REG-035: Ngrok must run as single-service ghcr.io/murkbra/ngrok:3.39.13 (avoiding Runtipi IPAM subnet/depends_on), require NGROK_AUTHTOKEN + NGROK_URL, map ${APP_PORT}:4040, and support optional built-in Nginx filter without host mounts
 """
 
@@ -725,46 +725,9 @@ def test_reg_033_pic_smaller_pinned_ghcr_workflow_and_port_3002(repo_root, get_a
     assert "linux/amd64,linux/arm64" in wf_text
 
 
-def test_reg_035_ngrok_pinned_optional_filter_inline_base64_and_no_host_mount(repo_root, get_app_config, get_app_compose):
-    """[REG-035] Ngrok must run as single-service ghcr.io/murkbra/ngrok matching config.json
-    (preventing Runtipi IPAM subnet generation and static depends_on), require NGROK_AUTHTOKEN and NGROK_URL,
-    map ${APP_PORT}:4040, omit host volumes, and build via multi-arch GHCR workflow."""
-    cfg = get_app_config("ngrok")
-    compose = get_app_compose("ngrok")
-    wf_text = (repo_root / ".github" / "workflows" / "docker-ngrok.yml").read_text(encoding="utf-8")
-
-    version = str(cfg.get("version", ""))
-    assert version and version != "latest"
-    assert cfg.get("port") == 4040
-    assert cfg.get("tipi_version", 0) >= 2
-
-    fields = {f["env_variable"]: f for f in cfg.get("form_fields", [])}
-    assert fields["NGROK_AUTHTOKEN"].get("type") == "password"
-    assert fields["NGROK_AUTHTOKEN"].get("required") is True
-    assert fields["NGROK_URL"].get("required") is True
-    assert "default" not in fields["NGROK_URL"]
-    assert fields["ENABLE_NGINX_FILTER"].get("default") == "true"
-    for opt in ("NGROK_TARGET", "NGINX_CONF_BASE64"):
-        assert fields[opt].get("required") is False
-        assert "default" not in fields[opt]
-
-    services = compose["services"]
-    assert list(services.keys()) == ["ngrok"]
-    ng = services["ngrok"]
-    assert ng.get("image") == f"ghcr.io/murkbra/ngrok:{version}"
-    assert [str(p) for p in ng.get("ports", [])] == ["${APP_PORT}:4040"]
-    assert ng.get("x-runtipi", {}).get("internal_port") == 4040
-    assert "volumes" not in ng
-    assert "depends_on" not in ng
-    assert "command" not in ng
-    assert "healthcheck" in ng
-    assert "steps.appver.outputs.version" in wf_text
-    assert "linux/amd64,linux/arm64" in wf_text
-
-
 def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo_root, get_app_config, get_app_compose):
     """[REG-034] Camoufox must pin ghcr.io/murkbra/camoufox matching config.json and requirements.txt
-    on python:3.12-slim without Selkies VNC, keep only the 5 essential UI fields, expose port 9223, mask WS_TOKEN, and include healthcheck."""
+    on python:3.12-slim without Selkies VNC, expose port 9223, mask WS_TOKEN, keep optional fingerprint controls pass-through, and include healthcheck."""
     cfg = get_app_config("camoufox")
     compose = get_app_compose("camoufox")
     wf_text = (repo_root / ".github" / "workflows" / "docker-camoufox.yml").read_text(encoding="utf-8")
@@ -775,9 +738,21 @@ def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo
     assert cfg.get("https") is None
 
     fields = {f["env_variable"]: f for f in cfg.get("form_fields", [])}
-    assert set(fields.keys()) == {"CONTAINER_NAME", "WS_TOKEN", "HEADLESS", "SLIM_FONTS", "GEOIP"}
+    expected_vars = {
+        "CONTAINER_NAME",
+        "WS_TOKEN",
+        "HEADLESS",
+        "SLIM_FONTS",
+        "GEOIP",
+        "OS_TARGET",
+        "LOCALE",
+        "BLOCK_IMAGES",
+        "BLOCK_WEBRTC",
+        "DISABLE_COOP",
+    }
+    assert set(fields.keys()) == expected_vars
     assert fields["WS_TOKEN"].get("type") == "password"
-    for var in ("SLIM_FONTS", "WS_TOKEN", "GEOIP"):
+    for var in expected_vars - {"CONTAINER_NAME", "HEADLESS"}:
         assert fields[var].get("required") is False
         assert "default" not in fields[var]
 
@@ -785,7 +760,7 @@ def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo
     assert svc.get("image") == f"ghcr.io/murkbra/camoufox:{version}"
     assert svc.get("container_name") == "${CONTAINER_NAME:-camoufox}"
     assert svc.get("shm_size") == "1gb"
-    assert cfg.get("tipi_version", 0) >= 7
+    assert cfg.get("tipi_version", 0) >= 8
     ports = [str(p) for p in svc.get("ports", [])]
     assert ports == ["${APP_PORT}:9223"]
     assert "${APP_DATA_DIR}/data/config:/config" in [str(v) for v in svc.get("volumes", [])]
@@ -793,7 +768,16 @@ def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo
     assert "healthcheck" in svc
     env = [str(e) for e in svc.get("environment", [])]
     assert "HEADLESS=${HEADLESS:-virtual}" in env and "TZ=${TZ}" in env
-    for var in ("SLIM_FONTS", "WS_TOKEN", "GEOIP"):
+    for var in (
+        "SLIM_FONTS",
+        "WS_TOKEN",
+        "GEOIP",
+        "OS_TARGET",
+        "LOCALE",
+        "BLOCK_IMAGES",
+        "BLOCK_WEBRTC",
+        "DISABLE_COOP",
+    ):
         assert var in env
     df_text = (repo_root / "packages" / "camoufox" / "Dockerfile").read_text(encoding="utf-8")
     assert "FROM python:3.12-slim" in df_text

@@ -22,4 +22,4 @@ If `WS_TOKEN` is set, pass the token via path (`ws://<host>:9223/<token>`), quer
 - **Display Mode (`HEADLESS`):** Defaults to `virtual`, using Camoufox's built-in `Xvfb` virtual display; set `true` for native headless without `Xvfb`.
 - **Slim Fonts (`SLIM_FONTS`):** Optional flag (`true`) that prunes large (>5 MB) CJK and Apple Emoji font files inside `/config/.cache` to save ~1.6 GB of disk space.
 - **GeoIP (`GEOIP`):** Optional flag (`true`) to automatically derive geolocation, timezone, WebRTC IP, and locale when routing traffic through proxies.
-- **Advanced Environment Overrides:** Additional server flags (`PROXY_SERVER`, `OS_TARGET`, `LOCALE`, `BLOCK_IMAGES`, `BLOCK_WEBRTC`, `DISABLE_COOP`, `PUID`/`PGID`) remain supported if added via Runtipi custom `user-config` Compose overrides.
+- **Fingerprint & Network Controls:** Optional `OS_TARGET` (`windows`/`macos`/`linux`), `LOCALE`, `BLOCK_IMAGES`, `BLOCK_WEBRTC`, and `DISABLE_COOP` settings directly in Runtipi (`PROXY_SERVER`, `PUID`, `PGID`, and `SHM_SIZE` remain supported if added via custom `user-config` Compose overrides).

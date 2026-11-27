@@ -17,6 +17,11 @@ services:
       - SLIM_FONTS
       - WS_TOKEN
       - GEOIP
+      - OS_TARGET
+      - LOCALE
+      - BLOCK_IMAGES
+      - BLOCK_WEBRTC
+      - DISABLE_COOP
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9223/health', timeout=5)"]
       interval: 30s

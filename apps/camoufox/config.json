@@ -5,10 +5,10 @@
   "port": 9223,
   "available": true,
   "categories": ["development", "automation", "utilities"],
-  "description": "Official anti-detect Firefox Playwright WebSocket server built on python:3.12-slim (daijro/camoufox) with C++ fingerprint spoofing, persistent /config cache, optional WS_TOKEN authentication, slim fonts pruning, and on-demand GeoIP matching for Playwright, Node-RED, and n8n.",
+  "description": "Official anti-detect Firefox Playwright WebSocket server built on python:3.12-slim (daijro/camoufox) with C++ fingerprint spoofing, persistent /config cache, optional WS_TOKEN auth, slim fonts pruning, GeoIP matching, and OS/locale/WebRTC/image controls for Playwright, Node-RED, and n8n.",
   "short_desc": "Official anti-detect Firefox Playwright WebSocket server",
   "author": "daijro",
-  "tipi_version": 7,
+  "tipi_version": 8,
   "version": "0.5.9",
   "source": "https://github.com/daijro/camoufox",
   "website": "https://camoufox.com",
@@ -64,6 +64,54 @@
       "regex": "^(true|false)$",
       "pattern_error": "Enter 'true' or 'false'.",
       "env_variable": "GEOIP",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "OS_TARGET",
+      "hint": "Target OS family used for fingerprint generation (windows, macos, or linux). Leave blank to randomize across all supported OS families.",
+      "placeholder": "windows",
+      "regex": "^(windows|macos|linux)$",
+      "pattern_error": "Enter 'windows', 'macos', or 'linux'.",
+      "env_variable": "OS_TARGET",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "LOCALE",
+      "hint": "Browser locale or comma-separated locales (e.g. pt-BR,en-US). Leave blank to use the generated fingerprint locale.",
+      "placeholder": "pt-BR,en-US",
+      "env_variable": "LOCALE",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "BLOCK_IMAGES",
+      "hint": "Block image loading to reduce bandwidth usage (true or false). Leave blank to load images normally.",
+      "placeholder": "true",
+      "regex": "^(true|false)$",
+      "pattern_error": "Enter 'true' or 'false'.",
+      "env_variable": "BLOCK_IMAGES",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "BLOCK_WEBRTC",
+      "hint": "Block WebRTC completely (true or false). Leave blank to keep default WebRTC fingerprint spoofing.",
+      "placeholder": "true",
+      "regex": "^(true|false)$",
+      "pattern_error": "Enter 'true' or 'false'.",
+      "env_variable": "BLOCK_WEBRTC",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "DISABLE_COOP",
+      "hint": "Disable Cross-Origin-Opener-Policy for interacting with cross-origin iframes (true or false). Leave blank to keep default.",
+      "placeholder": "true",
+      "regex": "^(true|false)$",
+      "pattern_error": "Enter 'true' or 'false'.",
+      "env_variable": "DISABLE_COOP",
       "required": false
     }
   ]
