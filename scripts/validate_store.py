@@ -121,6 +121,25 @@ def validate_app(app_path: Path) -> list:
     if not main_found:
         errors.append("No service has 'x-runtipi.is_main: true' configured")
 
+    # Check IPAM / network rules (only tipi_main_network: external: true allowed; no ipam/subnet)
+    top_networks = compose.get("networks")
+    if top_networks != {"tipi_main_network": {"external": True}}:
+        errors.append(
+            f"docker-compose.yml 'networks' must strictly equal {{'tipi_main_network': {{'external': True}}}}, got {top_networks!r}"
+        )
+    for line in raw_compose.splitlines():
+        stripped = line.split("#", 1)[0].strip()
+        if re.match(r"^(ipam|subnet|ip_range|gateway|aux_addresses)\s*:", stripped, re.IGNORECASE):
+            errors.append(f"Forbidden IPAM/subnet directive in docker-compose.yml: {stripped}")
+    for s_name, s_def in services.items():
+        if isinstance(s_def, dict):
+            if "network_mode" in s_def:
+                errors.append(f"Service '{s_name}' must not set 'network_mode'")
+            if s_def.get("networks") != ["tipi_main_network"]:
+                errors.append(
+                    f"Service '{s_name}' networks must strictly be ['tipi_main_network'], got {s_def.get('networks')!r}"
+                )
+
     # Check unbound vars
     referenced_vars = set(m[0] for m in ENV_VAR_REGEX.findall(raw_compose))
     unbound = referenced_vars - declared_vars - STANDARD_RUNTIPI_VARS

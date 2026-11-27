@@ -6,9 +6,9 @@
   "available": true,
   "categories": ["utilities", "development"],
   "description": "Modern Docker management UI for real-time container control, visual Compose stack orchestration, Git stack deployments, interactive terminal and logs, container file browsing, vulnerability scanning, and multi-environment management via socket or Hawser.",
-  "short_desc": "Modern Docker management UI with Compose stacks, terminal, logs, and PostgreSQL backend",
+  "short_desc": "Modern Docker management UI with Compose stacks, terminal, logs, and built-in SQLite storage",
   "author": "Finsys",
-  "tipi_version": 1,
+  "tipi_version": 2,
   "version": "v1.0.59",
   "source": "https://github.com/Finsys/dockhand",
   "website": "https://dockhand.pro",
@@ -18,36 +18,6 @@
   "form_fields": [
     {
       "type": "text",
-      "label": "POSTGRES_USER",
-      "hint": "PostgreSQL username initialized on first startup and used by Dockhand in DATABASE_URL.",
-      "placeholder": "dockhand",
-      "regex": "^[a-zA-Z_][a-zA-Z0-9_-]*$",
-      "pattern_error": "Must start with a letter or '_' and use only letters, numbers, '_' or '-'.",
-      "env_variable": "POSTGRES_USER",
-      "required": true
-    },
-    {
-      "type": "text",
-      "label": "POSTGRES_DB",
-      "hint": "PostgreSQL database name used by Dockhand. Default: dockhand.",
-      "placeholder": "dockhand",
-      "regex": "^[a-zA-Z_][a-zA-Z0-9_-]*$",
-      "pattern_error": "Must start with a letter or '_' and use only letters, numbers, '_' or '-'.",
-      "env_variable": "POSTGRES_DB",
-      "default": "dockhand",
-      "required": true
-    },
-    {
-      "type": "random",
-      "label": "POSTGRES_PASSWORD",
-      "hint": "Automatically generated random hex password for PostgreSQL, shared cleanly with Dockhand via DATABASE_URL.",
-      "env_variable": "POSTGRES_PASSWORD",
-      "encoding": "hex",
-      "min": 32,
-      "required": false
-    },
-    {
-      "type": "text",
       "label": "container_name",
       "hint": "Custom Docker container name for Dockhand. Default: dockhand (if left blank, falls back to dockhand).",
       "placeholder": "dockhand",
@@ -55,17 +25,6 @@
       "pattern_error": "Must start with a letter or number and contain at least 2 characters (letters, numbers, '.', '_' or '-').",
       "env_variable": "CONTAINER_NAME",
       "default": "dockhand",
-      "required": false
-    },
-    {
-      "type": "text",
-      "label": "postgres container_name",
-      "hint": "Custom Docker container name for the PostgreSQL service. Default: dockhand-postgres (if left blank, falls back to dockhand-postgres).",
-      "placeholder": "dockhand-postgres",
-      "regex": "^[a-zA-Z0-9][a-zA-Z0-9_.-]+$",
-      "pattern_error": "Must start with a letter or number and contain at least 2 characters (letters, numbers, '.', '_' or '-').",
-      "env_variable": "POSTGRES_CONTAINER_NAME",
-      "default": "dockhand-postgres",
       "required": false
     }
   ]

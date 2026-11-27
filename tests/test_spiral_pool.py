@@ -6,6 +6,7 @@ def test_spiral_pool_config_structure(get_app_config):
     config = get_app_config("spiral-pool")
     assert config["name"] == "Spiral Mining Pool"
     assert config["port"] == 1618
+    assert config["tipi_version"] >= 2
     assert "utilities" in config["categories"]
     assert "crypto" not in config["categories"], "Unrecognized category 'crypto' breaks Runtipi catalog listing"
 
@@ -63,11 +64,17 @@ def test_spiral_pool_compose_services(get_app_compose):
     assert stratum.get("container_name") == "${STRATUM_CONTAINER_NAME:-spiral-pool-stratum}"
     assert "postgres" in stratum["depends_on"]
     assert stratum["depends_on"]["postgres"]["condition"] == "service_healthy"
+    assert stratum["environment"]["DB_HOST"] == "${POSTGRES_CONTAINER_NAME:-spiral-pool-postgres}"
+    assert stratum["environment"]["DB_PORT"] == 5432
 
     # Dashboard checks
     dash = services["dashboard"]
     assert dash["image"] == "spiralpool/dashboard:latest"
     assert dash.get("container_name") == "${DASHBOARD_CONTAINER_NAME:-spiral-pool-dashboard}"
+    assert dash["environment"]["POOL_API_URL"] == "http://${STRATUM_CONTAINER_NAME:-spiral-pool-stratum}:4000"
+    assert dash["environment"]["PROMETHEUS_URL"] == "http://${STRATUM_CONTAINER_NAME:-spiral-pool-stratum}:9100"
+    assert dash["environment"]["POSTGRES_HOST"] == "${POSTGRES_CONTAINER_NAME:-spiral-pool-postgres}"
+    assert dash["environment"]["POSTGRES_PORT"] == 5432
     assert dash["x-runtipi"]["is_main"] is True
     assert dash["x-runtipi"]["internal_port"] == 1618
     assert any("1618" in str(p) for p in dash.get("ports", []))

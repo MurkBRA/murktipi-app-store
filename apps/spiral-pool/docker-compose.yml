@@ -75,7 +75,7 @@ services:
       DB_USER: spiralstratum
       DB_PASSWORD: ${DB_PASSWORD:-spiraldbpassword1234}
       DB_NAME: spiralstratum
-      DB_HOST: postgres
+      DB_HOST: ${POSTGRES_CONTAINER_NAME:-spiral-pool-postgres}
       DB_PORT: 5432
       TZ: ${TZ:-UTC}
     volumes:
@@ -94,12 +94,12 @@ services:
     depends_on:
       - stratum
     environment:
-      POOL_API_URL: http://stratum:4000
-      PROMETHEUS_URL: http://stratum:9100
+      POOL_API_URL: http://${STRATUM_CONTAINER_NAME:-spiral-pool-stratum}:4000
+      PROMETHEUS_URL: http://${STRATUM_CONTAINER_NAME:-spiral-pool-stratum}:9100
       POOL_ID: ${POOL_ID:-btc_sha256_1}
       DASHBOARD_AUTH_ENABLED: "true"
       DASHBOARD_ADMIN_PASSWORD: ${DASHBOARD_ADMIN_PASSWORD:-spiraladmin}
-      POSTGRES_HOST: postgres
+      POSTGRES_HOST: ${POSTGRES_CONTAINER_NAME:-spiral-pool-postgres}
       POSTGRES_PORT: 5432
       POSTGRES_DB: spiralstratum
       POSTGRES_USER: spiralstratum

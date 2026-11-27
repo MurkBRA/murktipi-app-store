@@ -1,7 +1,7 @@
 # MurkTipi App Store 🏪
 
 [![CI & Anti-Regression Tests](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml/badge.svg)](https://github.com/murkbra/murktipi-app-store/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-76%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
+[![Tests Passing](https://img.shields.io/badge/tests-80%20passed-brightgreen.svg)](https://github.com/murkbra/murktipi-app-store)
 [![Runtipi Schema](https://img.shields.io/badge/runtipi%20schema-v2-blue.svg)](https://runtipi.io)
 
 Repositório customizado de aplicativos (App Store de Usuário) para o **[Runtipi](https://runtipi.io)**, mantido por **[@murkbra](https://github.com/murkbra)**.
@@ -70,10 +70,10 @@ Servidor de navegadores headless (**Browserless v2** `v2.64.3`) para automação
 - **Variáveis e `shm_size` Opcionais:** `SHM_SIZE`, `MAX_CONCURRENT_SESSIONS`, `CONNECTION_TIMEOUT`, `PREBOOT_CHROME`, `CHROME_REFRESH_TIME`, `ENABLE_CORS` e `DEMOING` sem valor forçado (se deixadas em branco, não são injetadas no container / `shm_size` mantém o padrão nativo `64m` do Docker).
 
 ### 6. 🚢 [Dockhand](apps/dockhand)
-Painel moderno de gerenciamento Docker (`fnsys/dockhand:v1.0.59`) com orquestração visual de Compose stacks, GitOps, terminal/logs interativos, scanner de vulnerabilidades e backend **PostgreSQL 16** dedicado (`postgres:16-alpine` com healthcheck).
+Painel moderno de gerenciamento Docker (`fnsys/dockhand:v1.0.59`) em **container único** com orquestração visual de Compose stacks, GitOps, terminal/logs interativos, scanner de vulnerabilidades e armazenamento **SQLite** embutido em `/app/data` (sem container Postgres extra nem sub-rede IPAM no Runtipi).
 
 - **Porta Ajustada:** Porta padrão do host definida em `3180` (`${APP_PORT}:3000`), evitando conflito com serviços na porta `3000`.
-- **Banco com Senha Aleatória:** `POSTGRES_USER` obrigatório definido pelo usuário, `POSTGRES_DB` (`dockhand`), e `POSTGRES_PASSWORD` gerado automaticamente pelo Runtipi em hexadecimal (`type: random`) para uso seguro na `DATABASE_URL` (sem `PUID`/`PGID` e com `CONTAINER_NAME` / `POSTGRES_CONTAINER_NAME` opcionais).
+- **Configuração Limpa:** Sem `PUID`/`PGID` e com `CONTAINER_NAME` opcional (`dockhand`). No primeiro acesso, basta adicionar o ambiente local em **Settings → Environments → Add environment** (`Unix socket`: `/var/run/docker.sock`) para listar containers e stacks.
 
 ### 7. 🖼️ [ImgCompress](apps/imgcompress)
 Aplicação web self-hosted (`karimz1/imgcompress:1.0.0`) para compressão, conversão, redimensionamento, upscaling por IA e remoção de fundo de imagens localmente em container `nonroot` com suporte a mais de 70 formatos.
@@ -93,7 +93,7 @@ Servidor WebSocket Playwright oficial do navegador anti-detecção **Camoufox** 
 - **Configuração Direta (11 campos):** Configura `CONTAINER_NAME`, `WS_TOKEN`, `HEADLESS` (`virtual` via `Xvfb` ou `true` nativo), `SLIM_FONTS`, `GEOIP`, `OS_TARGET`, `LOCALE`, `BLOCK_IMAGES`, `BLOCK_WEBRTC`, `DISABLE_COOP` e `SHM_SIZE` (padrão `1gb`) diretamente pela loja, mantendo builds multi-arch `amd64`/`arm64` no GHCR.
 
 ### 10. 🌐 [Ngrok](apps/ngrok)
-Agente oficial de túneis **Ngrok** (`ngrok/ngrok:alpine`) em container único padrão, com inspetor web na porta `4040` (`${APP_PORT}:4040`), zero volumes de host e sem sub-rede IPAM extra ou `depends_on` no Runtipi.
+Agente oficial de túneis **Ngrok** (`ngrok/ngrok:3.39.13-alpine`) em container único padrão, com inspetor web na porta `4040` (`${APP_PORT}:4040`), zero volumes de host e sem sub-rede IPAM extra ou `depends_on` no Runtipi.
 
 - **Configuração Direta:** `NGROK_AUTHTOKEN` e `NGROK_URL` obrigatórios com `NGROK_TARGET` (padrão `80`, ex.: `80`, `8080`, `runtipi-reverse-proxy:80` ou `container:porta`) e `CONTAINER_NAME` opcionais, executando `ngrok http --url=${NGROK_URL} ${NGROK_TARGET:-80}`.
 
@@ -129,12 +129,12 @@ Este repositório possui uma suíte rigorosa de testes automatizados e uma polí
 - `tests/test_telegram_bot_api.py`: Testes específicos do Telegram Bot API (obrigatoriedade de API ID/Hash, exclusão de `TZ` do formulário, preservação dos padrões originais + `CONTAINER_NAME` opcional, mapeamento `${APP_PORT}:2627` e `logo.jpg`).
 - `tests/test_email_oauth2_proxy_ui.py`: Testes específicos do Email OAuth2 Proxy UI (integração `ROOT_FOLDER_HOST`, `PROXY_STORE_ID`, imagem GHCR, Dockerfile Go 1.27 Alpine e `logo.jpg`).
 - `tests/test_browserless.py`: Testes específicos do Browserless (versão `v2.64.3` fixada, seleção de imagem com `chrome` padrão, variáveis/shm_size opcionais sem default forçado, `CONTAINER_NAME` opcional e `logo.jpg`).
-- `tests/test_dockhand.py`: Testes específicos do Dockhand (`fnsys/dockhand:v1.0.59`, Postgres 16 com healthcheck, porta ajustada `3180 -> 3000`, ausência de `PUID`/`PGID`, `POSTGRES_USER` definido pelo usuário, `POSTGRES_PASSWORD` `random`/`hex` e `CONTAINER_NAME` configurável).
+- `tests/test_dockhand.py`: Testes específicos do Dockhand (`fnsys/dockhand:v1.0.59` em container único SQLite sem Postgres/rede IPAM, porta ajustada `3180 -> 3000`, ausência de `PUID`/`PGID`, `CONTAINER_NAME` configurável e `logo.jpg`).
 - `tests/test_imgcompress.py`: Testes específicos do ImgCompress (`karimz1/imgcompress:1.0.0`, mapeamento `3001 -> 5000`, healthcheck `/container/healthcheck.py`, variáveis opcionais pass-through, `CONTAINER_NAME` configurável e `logo.jpg`).
 - `tests/test_pic_smaller.py`: Testes específicos do Pic Smaller (`ghcr.io/murkbra/pic-smaller:1.1.0`, mapeamento `3002 -> 3000`, workflow multi-arch no GHCR, healthcheck, `CONTAINER_NAME` configurável e `logo.jpg`).
 - `tests/test_camoufox.py`: Testes específicos do Camoufox (`ghcr.io/murkbra/camoufox:0.5.9`, mapeamento `9223 -> 9223`, pacote `packages/camoufox/`, workflow multi-arch no GHCR, segredos mascarados, healthcheck e `logo.jpg`).
-- `tests/test_ngrok.py`: Testes específicos do Ngrok (imagem oficial `ngrok/ngrok:alpine`, container único sem rede IPAM/`depends_on`, mapeamento `4040 -> 4040`, `NGROK_AUTHTOKEN` e `NGROK_URL` obrigatórios, `NGROK_TARGET`/`CONTAINER_NAME` opcionais e `logo.jpg`).
-- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-035`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
+- `tests/test_ngrok.py`: Testes específicos do Ngrok (imagem oficial `ngrok/ngrok:3.39.13-alpine`, container único sem rede IPAM/`depends_on`, mapeamento `4040 -> 4040`, `NGROK_AUTHTOKEN` e `NGROK_URL` obrigatórios, `NGROK_TARGET`/`CONTAINER_NAME` opcionais e `logo.jpg`).
+- `tests/test_regression.py`: **Suíte Anti-Regressão** (`REG-001` a `REG-038`) documentando cada caso de borda para garantir que bugs anteriores nunca voltem a ocorrer.
 - `.github/workflows/ci.yml`: Automação contínua no GitHub Actions disparada a cada push e pull request.
 
 ---

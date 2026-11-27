@@ -3,7 +3,7 @@ x-runtipi:
 
 services:
   ngrok:
-    image: ngrok/ngrok:alpine
+    image: ngrok/ngrok:3.39.13-alpine
     container_name: "${CONTAINER_NAME:-ngrok}"
     restart: unless-stopped
     command: http --url=${NGROK_URL} ${NGROK_TARGET:-80}

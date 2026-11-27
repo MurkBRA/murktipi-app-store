@@ -1,6 +1,6 @@
 # Ngrok Tunnel Agent
 
-**Ngrok** exposes local services and Runtipi containers over secure HTTPS tunnels using the official **`ngrok/ngrok:alpine`** image, with the local web inspector available on `${APP_PORT}` (default **`4040`**).
+**Ngrok** exposes local services and Runtipi containers over secure HTTPS tunnels using the official **`ngrok/ngrok:3.39.13-alpine`** image, with the local web inspector available on `${APP_PORT}` (default **`4040`**).
 
 Because it runs as a single container directly on `tipi_main_network`, Runtipi does not generate extra per-app IPAM subnets or `depends_on` dependencies.
 

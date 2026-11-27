@@ -64,3 +64,23 @@ def test_network_tipi_main_network_is_external(app_ids, get_app_compose):
         assert "tipi_main_network" in compose["networks"], f"App '{app_id}' missing 'tipi_main_network'"
         net = compose["networks"]["tipi_main_network"]
         assert net.get("external") is True, f"'tipi_main_network' in '{app_id}' must be marked 'external: true'"
+
+
+def test_no_ipam_or_extra_networks(apps_dir, app_ids, get_app_compose):
+    for app_id in app_ids:
+        compose = get_app_compose(app_id)
+        raw_text = (apps_dir / app_id / "docker-compose.yml").read_text(encoding="utf-8")
+
+        assert compose.get("networks") == {"tipi_main_network": {"external": True}}, (
+            f"App '{app_id}' must declare only 'tipi_main_network: {{external: true}}' (never ipam/custom networks), got {compose.get('networks')!r}"
+        )
+        for line in raw_text.splitlines():
+            stripped = line.split("#", 1)[0].strip()
+            assert not re.match(r"^(ipam|subnet|ip_range|gateway|aux_addresses)\s*:", stripped, re.IGNORECASE), (
+                f"App '{app_id}' must never define IPAM/subnet directives: {stripped!r}"
+            )
+        for svc_name, svc_def in compose.get("services", {}).items():
+            assert "network_mode" not in svc_def, f"Service '{app_id}.{svc_name}' must not set network_mode"
+            assert svc_def.get("networks") == ["tipi_main_network"], (
+                f"Service '{app_id}.{svc_name}' must attach strictly to ['tipi_main_network']"
+            )
