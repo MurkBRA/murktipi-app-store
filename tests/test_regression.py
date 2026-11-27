@@ -749,6 +749,7 @@ def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo
         "BLOCK_IMAGES",
         "BLOCK_WEBRTC",
         "DISABLE_COOP",
+        "SHM_SIZE",
     }
     assert set(fields.keys()) == expected_vars
     assert fields["WS_TOKEN"].get("type") == "password"
@@ -759,8 +760,8 @@ def test_reg_034_camoufox_pinned_ghcr_workflow_masked_secrets_and_port_9223(repo
     svc = compose["services"]["camoufox"]
     assert svc.get("image") == f"ghcr.io/murkbra/camoufox:{version}"
     assert svc.get("container_name") == "${CONTAINER_NAME:-camoufox}"
-    assert svc.get("shm_size") == "1gb"
-    assert cfg.get("tipi_version", 0) >= 8
+    assert svc.get("shm_size") == "${SHM_SIZE:-1gb}"
+    assert cfg.get("tipi_version", 0) >= 9
     ports = [str(p) for p in svc.get("ports", [])]
     assert ports == ["${APP_PORT}:9223"]
     assert "${APP_DATA_DIR}/data/config:/config" in [str(v) for v in svc.get("volumes", [])]

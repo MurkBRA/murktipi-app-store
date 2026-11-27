@@ -8,7 +8,7 @@
   "description": "Official anti-detect Firefox Playwright WebSocket server built on python:3.12-slim (daijro/camoufox) with C++ fingerprint spoofing, persistent /config cache, optional WS_TOKEN auth, slim fonts pruning, GeoIP matching, and OS/locale/WebRTC/image controls for Playwright, Node-RED, and n8n.",
   "short_desc": "Official anti-detect Firefox Playwright WebSocket server",
   "author": "daijro",
-  "tipi_version": 8,
+  "tipi_version": 9,
   "version": "0.5.9",
   "source": "https://github.com/daijro/camoufox",
   "website": "https://camoufox.com",
@@ -112,6 +112,14 @@
       "regex": "^(true|false)$",
       "pattern_error": "Enter 'true' or 'false'.",
       "env_variable": "DISABLE_COOP",
+      "required": false
+    },
+    {
+      "type": "text",
+      "label": "shm_size",
+      "hint": "Shared memory (/dev/shm) size for Camoufox. Leave blank to use the default (1gb).",
+      "placeholder": "1gb",
+      "env_variable": "SHM_SIZE",
       "required": false
     }
   ]

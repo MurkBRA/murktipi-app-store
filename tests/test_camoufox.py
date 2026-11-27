@@ -21,7 +21,7 @@ def test_camoufox_config_fields_and_secrets(get_app_config):
     assert config["exposable"] is True
     assert config["version"] == "0.5.9"
     assert config["version"] != "latest"
-    assert config["tipi_version"] >= 8
+    assert config["tipi_version"] >= 9
     assert set(config["categories"]) == {"development", "automation", "utilities"}
     assert config["supported_architectures"] == ["amd64", "arm64"]
 
@@ -37,7 +37,6 @@ def test_camoufox_config_fields_and_secrets(get_app_config):
         "PROXY_SERVER",
         "PROXY_USERNAME",
         "PROXY_PASSWORD",
-        "SHM_SIZE",
     ):
         assert removed not in fields_by_var
 
@@ -52,11 +51,13 @@ def test_camoufox_config_fields_and_secrets(get_app_config):
         "BLOCK_IMAGES",
         "BLOCK_WEBRTC",
         "DISABLE_COOP",
+        "SHM_SIZE",
     }
     assert set(fields_by_var.keys()) == expected_vars
 
     assert fields_by_var["CONTAINER_NAME"]["required"] is False
     assert fields_by_var["CONTAINER_NAME"]["default"] == "camoufox"
+    assert fields_by_var["SHM_SIZE"]["label"] == "shm_size"
 
     headless = fields_by_var["HEADLESS"]
     assert headless["required"] is True
@@ -82,7 +83,7 @@ def test_camoufox_compose_structure_and_passthrough(get_app_config, get_app_comp
     assert svc.get("image") == f"ghcr.io/murkbra/camoufox:{config['version']}"
     assert svc.get("container_name") == "${CONTAINER_NAME:-camoufox}"
     assert svc.get("restart") == "unless-stopped"
-    assert svc.get("shm_size") == "1gb"
+    assert svc.get("shm_size") == "${SHM_SIZE:-1gb}"
 
     ports = [str(p) for p in svc.get("ports", [])]
     assert ports == ["${APP_PORT}:9223"]

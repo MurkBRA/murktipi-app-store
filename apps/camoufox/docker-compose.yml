@@ -6,7 +6,7 @@ services:
     image: ghcr.io/murkbra/camoufox:0.5.9
     container_name: "${CONTAINER_NAME:-camoufox}"
     restart: unless-stopped
-    shm_size: "1gb"
+    shm_size: "${SHM_SIZE:-1gb}"
     ports:
       - "${APP_PORT}:9223"
     volumes:
